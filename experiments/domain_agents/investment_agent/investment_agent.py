@@ -6,7 +6,7 @@ import uuid
 from worksheets import (
     AgentBuilder,
     Config,
-    DatatalkParser,
+    SUQLReActParser,
     SUQLKnowledgeBase,
     conversation_loop,
 )
@@ -223,9 +223,13 @@ agent_builder = (
         db_port=os.getenv("DB_PORT", "5432"),
     )
     .with_parser(
-        DatatalkParser,
-        domain="banco_itau",
-        api_key=os.getenv("DATATALK_API"),
+        # DatatalkParser,
+        # domain="banco_itau",
+        # api_key=os.getenv("DATATALK_API"),
+        SUQLReActParser,
+        example_path=os.path.join(current_dir, "examples.txt"),
+        instruction_path=os.path.join(current_dir, "instructions.txt"),
+        table_schema_path=os.path.join(current_dir, "table_schema.txt"),
     )
     .with_gsheet_specification("18dEfdpdHQxuT6nvvBBCMtmj7cy4sF5Jlnfpt66YxSIA")
 )
