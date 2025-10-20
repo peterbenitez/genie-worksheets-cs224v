@@ -231,7 +231,7 @@ agent_builder = (
         instruction_path=os.path.join(current_dir, "instructions.txt"),
         table_schema_path=os.path.join(current_dir, "table_schema.txt"),
     )
-    .with_csv_specification(os.path.join(current_dir, "investment_specification.csv"))
+    .with_gsheet_specification("1L2fisGwyyHO1u_dKfDJlskzC5aP69kQFIadtqEwvcxk")
 )
 
 if __name__ == "__main__":
