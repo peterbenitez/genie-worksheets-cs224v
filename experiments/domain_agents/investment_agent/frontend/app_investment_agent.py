@@ -11,9 +11,14 @@ from worksheets import Config
 from worksheets.agent.chainlit import ChainlitAgent
 from worksheets.core.dialogue import CurrentDialogueTurn
 from worksheets.utils.annotation import get_agent_action_schemas, get_context_schema
+from worksheets.utils.chainlite_config import load_chainlite_config
 
 current_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(current_dir, ".."))
+
+# Initialize LLM configuration
+load_chainlite_config(os.path.join(current_dir, "llm_config.yaml"))
+
 from investment_agent import agent_builder
 
 # Constants

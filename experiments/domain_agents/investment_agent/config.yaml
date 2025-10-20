@@ -8,27 +8,19 @@ append_to_prompt_log: true
 include_timestamp_in_prompt_log: true
 
 semantic_parser:
-    model_name: "azure/gpt-4.1"
-    api_key: "AZURE_NAIRR_KEY"
-    api_version: "2024-12-01-preview"
-    azure_endpoint: "AZURE_NAIRR_ENDPOINT"
+    model_name: "gemini-2.5-flash"
+    api_key: "GEMINI_API_KEY"
 
 response_generator:
-    model_name: "azure/gpt-4.1"
-    api_key: "AZURE_NAIRR_KEY"
-    api_version: "2024-12-01-preview"
-    azure_endpoint: "AZURE_NAIRR_ENDPOINT"
+    model_name: "gemini-2.5-flash"
+    api_key: "GEMINI_API_KEY"
     max_tokens: 4096
 
 knowledge_parser:
-    model_name: "azure/gpt-4.1"
-    api_key: "AZURE_NAIRR_KEY"
-    api_version: "2024-12-01-preview"
-    azure_endpoint: "AZURE_NAIRR_ENDPOINT"
+    model_name: "gemini-2.5-flash"
+    api_key: "GEMINI_API_KEY"
 
 knowledge_base:
-    model_name: "azure/gpt-4.1"
-    api_key: "AZURE_NAIRR_KEY"
-    api_version: "2024-12-01-preview"
-    azure_endpoint: "AZURE_NAIRR_ENDPOINT"
+    model_name: "gemini-2.5-flash"
+    api_key: "GEMINI_API_KEY"
 

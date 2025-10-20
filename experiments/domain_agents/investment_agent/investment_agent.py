@@ -193,7 +193,7 @@ knowledge_base = SUQLKnowledgeBase(
         "fidelity_funds": "id",
     },
     database_name="banco_itau",
-    embedding_server_address="http://127.0.0.1:8509",
+    embedding_server_address="http://127.0.0.1:8500",
     db_username="select_user",
     db_password="select_user",
     db_host=os.getenv("DB_HOST", "127.0.0.1"),
@@ -216,7 +216,7 @@ agent_builder = (
             "fidelity_funds": "id",
         },
         database_name="banco_itau",
-        embedding_server_address="http://127.0.0.1:8509",
+        embedding_server_address="http://127.0.0.1:8500",
         db_username="select_user",
         db_password="select_user",
         db_host=os.getenv("DB_HOST", "127.0.0.1"),
@@ -231,7 +231,7 @@ agent_builder = (
         instruction_path=os.path.join(current_dir, "instructions.txt"),
         table_schema_path=os.path.join(current_dir, "table_schema.txt"),
     )
-    .with_gsheet_specification("18dEfdpdHQxuT6nvvBBCMtmj7cy4sF5Jlnfpt66YxSIA")
+    .with_csv_specification(os.path.join(current_dir, "investment_specification.csv"))
 )
 
 if __name__ == "__main__":
@@ -244,11 +244,4 @@ if __name__ == "__main__":
 
     # Use agent as context manager for automatic logging and conversation saving
     with agent:
-        agent.runtime.context.update(
-            {
-                "user_profile": agent.runtime.context.context["UserProfile"](
-                    user_id=user_id, risk_profile=user_risk_profile
-                ),
-            }
-        )
         asyncio.run(conversation_loop(agent, debug=True))

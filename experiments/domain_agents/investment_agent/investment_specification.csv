@@ -1,0 +1,10 @@
+Form Predicate,Form Name,Predicate,Kind,Type,Name,Enum Values,Description,Don't Ask,Required,Confirm,Actions,Form Actions
+,Main,,,worksheet,fund_investment_api,,,,,,,
+,,,input,FundAllocation,fund_allocation,,The fund allocation details,,TRUE,,,
+,,,input,confirm,confirm_investment,,Confirm the investment,,TRUE,,,
+,FundAllocation,,,worksheet,,,,,,,,
+,,,input,List[Fund],fund_to_invest_in,,List of funds to invest in,,TRUE,,,
+,,,input,float,investment_amount,,Total amount to invest,,TRUE,,,
+,Fund,,,worksheet,,,,,,,,
+,,,input,str,symbol,,Fund symbol or ticker,,TRUE,,,
+,,,input,str,name,,Fund name,,TRUE,,,
