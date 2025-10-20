@@ -9,23 +9,17 @@ _AGENT_API_REGISTRY = []
 
 
 class OpenAIModelConfig(BaseModel):
-    model_name: str = Field(default="azure/gpt-4o")
+    model_name: str = Field(default="azure/gpt-4.1-mini")
     temperature: float = Field(default=0.0)
     max_tokens: int = Field(default=1024)
     top_p: float = Field(default=1.0)
     frequency_penalty: float = Field(default=0.0)
     presence_penalty: float = Field(default=0.0)
-    api_key: str = Field(default=None)
-    api_base: str = Field(default=None)
-    api_version: str = Field(default=None)
     config_name: str = Field(default="openai", frozen=True)
 
 
 class AzureModelConfig(BaseModel):
-    model_name: str = Field(default="azure/gpt-4o")
-    api_key: str = Field(default=None)
-    azure_endpoint: str = Field(default=None)
-    api_version: str = Field(default=None)
+    model_name: str = Field(default="azure/gpt-4.1-mini")
     temperature: float = Field(default=0.0)
     max_tokens: int = Field(default=1024)
     top_p: float = Field(default=1.0)
@@ -45,10 +39,8 @@ class Config(BaseModel):
     rg_num_turns: int = Field(default=2)
 
     prompt_log_path: str | None = Field(default=None)
-    append_to_prompt_log: bool = Field(default=True)
-    include_timestamp_in_prompt_log: bool = Field(default=True)
     conversation_log_path: str | None = Field(default=None)
-    append_to_conversation_log: bool = Field(default=True)
+    append_to_conversation_log: bool = Field(default=False)
     validate_response: bool = Field(default=False)
 
     @classmethod
@@ -62,11 +54,7 @@ class Config(BaseModel):
             "knowledge_parser",
             "knowledge_base",
         ]:
-            api_key = os.getenv(config[model_config]["api_key"])
-            config[model_config]["api_key"] = api_key
             if "azure/" in config[model_config]["model_name"]:
-                azure_endpoint = os.getenv(config[model_config]["azure_endpoint"])
-                config[model_config]["azure_endpoint"] = azure_endpoint
                 config[model_config] = AzureModelConfig(
                     **config[model_config],
                 )

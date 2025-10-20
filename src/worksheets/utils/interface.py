@@ -87,7 +87,7 @@ async def conversation_loop(agent, quit_commands=None, debug=False):
             user_utterance = None
             if user_utterance is None:
                 user_utterance = input_user()
-            if user_utterance == quit_commands:
+            if user_utterance in quit_commands:
                 break
 
             await agent.generate_next_turn(user_utterance)

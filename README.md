@@ -76,27 +76,15 @@ import os
 config = Config(
     semantic_parser=AzureModelConfig(
         model_name="azure/gpt-4o",
-        api_key=os.getenv("AZURE_OPENAI_WS_KEY"),
-        api_version=os.getenv("AZURE_WS_API_VERSION"),
-        azure_endpoint=os.getenv("AZURE_WS_ENDPOINT"),
     ),
     response_generator=AzureModelConfig(
         model_name="azure/gpt-4o",
-        api_key=os.getenv("AZURE_OPENAI_WS_KEY"),
-        api_version=os.getenv("AZURE_WS_API_VERSION"),
-        azure_endpoint=os.getenv("AZURE_WS_ENDPOINT"),
     ),
     knowledge_parser=AzureModelConfig(
-        model_name="gpt-4o",
-        api_key=os.getenv("AZURE_OPENAI_WS_KEY"),
-        api_version=os.getenv("AZURE_WS_API_VERSION"),
-        azure_endpoint=os.getenv("AZURE_WS_ENDPOINT"),
+        model_name="azure/gpt-4o",
     ),
     knowledge_base=AzureModelConfig(
         model_name="azure/gpt-4o",
-        api_key=os.getenv("AZURE_OPENAI_WS_KEY"),
-        api_version=os.getenv("AZURE_WS_API_VERSION"),
-        azure_endpoint=os.getenv("AZURE_WS_ENDPOINT"),
     ),
     prompt_dir=prompt_dir,
 )
@@ -274,7 +262,7 @@ Here is a sample spreadsheet for a restaurant agent: [Restaurant Agent](https://
 Please note that we only use the specification defined in the first sheet of the spreadsheet.
 
 ## LLM Config
-You should modify `llm_config.example.yaml` and save it as `llm_config.yaml` from the directory where you run the agent.
+You should create a `.env` file similar to `.env.example` and fill in the values for the LLM API keys and endpoints.
 
 ### Running the Agent (Web Interface)
 

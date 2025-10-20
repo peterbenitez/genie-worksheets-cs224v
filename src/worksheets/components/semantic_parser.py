@@ -6,11 +6,10 @@ import os
 import re
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
-from chainlite import llm_generation_chain
 from loguru import logger
 from sql_metadata import Parser
 from suql.sql_free_text_support.execute_free_text_sql import _check_required_params
-
+from langchain_core.output_parsers import StrOutputParser
 from worksheets.components.rewriter import rewrite_code_to_extract_funcs
 from worksheets.core.dialogue import CurrentDialogueTurn
 from worksheets.core.runtime import GenieRuntime
@@ -18,6 +17,9 @@ from worksheets.utils.annotation import prepare_semantic_parser_input
 from worksheets.utils.field import get_genie_fields_from_ws
 from worksheets.utils.llm import extract_code_block_from_output
 from worksheets.utils.worksheet import count_worksheet_variables
+from worksheets.llm.llm import get_llm_client
+from worksheets.llm.prompts import load_fewshot_prompt_template
+from worksheets.llm.logging import LoggingHandler
 
 if TYPE_CHECKING:
     from worksheets.agent.agent import Agent
@@ -44,13 +46,17 @@ class ContextualSemanticParser:
         self.runtime = runtime
         self.agent = agent
 
-        self.chain = llm_generation_chain(
-            template_file="semantic_parser.prompt",
-            engine=self.agent.config.semantic_parser.model_name,
+        self.llm_client = get_llm_client(
+            model=self.agent.config.semantic_parser.model_name,
             temperature=self.agent.config.semantic_parser.temperature,
             top_p=self.agent.config.semantic_parser.top_p,
             max_tokens=self.agent.config.semantic_parser.max_tokens,
         )
+
+        self.prompt_template = load_fewshot_prompt_template(
+            "semantic_parser.prompt"
+        )
+        self.chain = self.prompt_template | self.llm_client | StrOutputParser()
 
     async def generate_formal_representation(
         self,
@@ -76,6 +82,18 @@ class ContextualSemanticParser:
         Returns:
             str: The generated formal code representation.
         """
+        logging_handler = LoggingHandler(
+            prompt_file="semantic_parser.prompt",
+            metadata={
+                "user_utterance": current_dlg_turn.user_utterance,
+                "state_schema": state_schema,
+                "agent_acts": agent_acts,
+                "agent_utterance": agent_utterance,
+                "available_worksheets_text": available_worksheets_text,
+                "available_dbs_text": available_dbs_text,
+            },
+            session_id=self.agent.session_id,
+        )
         prompt_inputs = self._prepare_prompt_inputs(
             dlg_history,
             current_dlg_turn,
@@ -86,7 +104,7 @@ class ContextualSemanticParser:
             available_dbs_text,
         )
 
-        parsed_output = await self.chain.ainvoke(prompt_inputs)
+        parsed_output = await self.chain.ainvoke(prompt_inputs, config={"callbacks": [logging_handler]})
 
         return extract_code_block_from_output(parsed_output, lang="python")
 

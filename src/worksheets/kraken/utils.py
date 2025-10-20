@@ -3,15 +3,16 @@ import warnings
 from dataclasses import dataclass
 from typing import Dict
 
-from chainlite import chain, llm_generation_chain
+
+from langchain_core.runnables import chain
 from json_repair import repair_json
 from loguru import logger
 
 from worksheets.kraken.state import SqlQuery
-from worksheets.utils.chainlite_config import ensure_chainlite_config_loaded
+from worksheets.llm.logging import LoggingHandler
+from worksheets.llm.prompts import load_fewshot_prompt_template
+from worksheets.llm.llm import get_llm_client
 
-# Ensure chainlite config is loaded before using any chainlite functions
-ensure_chainlite_config_loaded()
 
 warnings.filterwarnings(
     "ignore", category=UserWarning, message="TypedStorage is deprecated"
@@ -122,56 +123,6 @@ async def get_relevant_examples(utterance: str, examples: list[str]) -> list[str
     return top_examples
 
 
-async def check_each_instruction(
-    question: str, sql: str, result: str, instruction: str
-) -> str:
-    return await llm_generation_chain(
-        template_file="check_instruction.prompt",
-        engine="gpt-4o-mini",
-        max_tokens=700,
-        keep_indentation=True,
-    ).ainvoke(
-        {
-            "sql": sql,
-            "results": result,
-            "instruction": instruction,
-            "question": question,
-        }
-    )
-
-
-@chain
-async def get_domain_feedback(state, instructions: list[str]) -> str:
-    question = state["question"]
-    sql = state["actions"][-1].action_argument
-    # print("get_domain_feedback")
-    result = execute_sql_object(sql).execution_result
-
-    tasks = []
-    for instruction in instructions:
-        tasks.append(check_each_instruction(question, sql.sql, result, instruction))
-
-    feedback = await asyncio.gather(*tasks)
-
-    # Summarize the feedback
-    summarized_feedback = await llm_generation_chain(
-        template_file="summarize_feedback.prompt",
-        engine="gpt-4o-mini",
-        max_tokens=700,
-        keep_indentation=True,
-    ).ainvoke(
-        {
-            "feedback": feedback,
-            "question": question,
-            "sql": sql.sql,
-            "results": result,
-            "instructions": "\n- ".join(instructions),
-        }
-    )
-
-    return summarized_feedback
-
-
 def get_relevant_table_schema(utterance: str, schema: str) -> dict:
     # TODO: Select relevant table schemas. Right now we are just returning the schema
     return schema
@@ -197,16 +148,29 @@ def process_reranking_output(response):
 
 
 async def llm_rerank_window(query_text, retrieval_results):
-    reranking_prompt_output = await llm_generation_chain(
-        template_file="rerank_list.prompt",
-        engine="gpt-4o",
+    llm_client = get_llm_client(
+        model="gpt-4o",
+        temperature=1.0,
+        top_p=0.9,
         max_tokens=700,
-        keep_indentation=True,
-    ).ainvoke(
-        {
-            "query": query_text,
+    )
+    reranking_prompt_template = load_fewshot_prompt_template(
+        "rerank_list.prompt"
+    )
+    logging_handler = LoggingHandler(
+        prompt_file="rerank_list.prompt",
+        metadata={
+            "query_text": query_text,
             "retrieval_results": retrieval_results,
         }
+    )
+    reranking_prompt_chain = reranking_prompt_template | llm_client
+    reranking_prompt_output = await reranking_prompt_chain.ainvoke(
+        {
+            "query_text": query_text,
+            "retrieval_results": retrieval_results,
+        },
+        config={"callbacks": [logging_handler]},
     )
 
     reranked_indices = process_reranking_output(reranking_prompt_output)

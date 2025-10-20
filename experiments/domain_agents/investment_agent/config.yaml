@@ -3,24 +3,15 @@ validate_response: false
 prompt_log_path: "logs/investment_agent_prompts.log"
 conversation_log_path: "logs/investment_agent_conversation.json"
 
-append_to_conversation_log: true
-append_to_prompt_log: true
-include_timestamp_in_prompt_log: true
-
 semantic_parser:
-    model_name: "gemini-2.5-flash"
-    api_key: "GEMINI_API_KEY"
+    model_name: "azure/gpt-4.1"
 
 response_generator:
-    model_name: "gemini-2.5-flash"
-    api_key: "GEMINI_API_KEY"
-    max_tokens: 4096
+    model_name: "azure/gpt-4.1"
 
 knowledge_parser:
-    model_name: "gemini-2.5-flash"
-    api_key: "GEMINI_API_KEY"
+    model_name: "azure/gpt-4.1"
 
 knowledge_base:
-    model_name: "gemini-2.5-flash"
-    api_key: "GEMINI_API_KEY"
+    model_name: "azure/gpt-4.1"
 

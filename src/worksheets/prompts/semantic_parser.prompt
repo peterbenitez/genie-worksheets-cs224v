@@ -124,7 +124,7 @@ Type: StanfordCourse
    Still produce both sections; the `# Code` block should read:
 
    ```python
-   # Chit-chat, greeting or thanking.
+   chitchat()
    ```
 
 # input

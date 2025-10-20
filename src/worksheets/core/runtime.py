@@ -12,6 +12,7 @@ from worksheets.core.builtin_functions import (
     answer_clarification_question,
     confirm,
     no_response,
+    chitchat,
     propose,
     say,
     state_response,
@@ -94,6 +95,7 @@ class GenieRuntime:
                 say,
                 no_response,
                 state_response,
+                chitchat,
             ]
         )
         for api in apis:

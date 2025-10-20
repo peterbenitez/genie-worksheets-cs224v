@@ -1,24 +1,25 @@
 import json
 
-from chainlite import chain, llm_generation_chain
 from langgraph.graph import END, StateGraph
 from loguru import logger
-
-from worksheets.kraken.state import Action, KrakenState, SqlQuery
+from langchain_core.runnables import chain
+from worksheets.kraken.state import ParserAction, KrakenState, SqlQuery
+from pydantic import BaseModel, Field
+from worksheets.llm.prompts import load_fewshot_prompt_template
 from worksheets.kraken.utils import (
     BaseParser,
     execute_sql_object,
     format_table_schema,
     get_relevant_examples,
     get_relevant_table_schema,
-    parse_string_to_json,
     sql_string_to_sql_object,
 )
-from worksheets.utils.chainlite_config import ensure_chainlite_config_loaded
+from worksheets.llm.llm import get_llm_client
 
-# Ensure chainlite config is loaded before using any chainlite functions
-ensure_chainlite_config_loaded()
-
+class Action(BaseModel):
+    thought: str = Field(description="The thought of the action")
+    action_name: str = Field(description="The name of the action")
+    action_argument: str = Field(description="The argument of the action")
 
 @chain
 async def json_to_string(j: dict) -> str:
@@ -26,7 +27,7 @@ async def json_to_string(j: dict) -> str:
 
 
 @chain
-async def json_to_action(action_dict: dict) -> Action:
+async def json_to_action(action_dict: dict) -> ParserAction:
     thought = action_dict["thought"]
     action_name = action_dict["action_name"]
     action_argument = action_dict["action_argument"]
@@ -34,7 +35,7 @@ async def json_to_action(action_dict: dict) -> Action:
     if action_name == "execute_sql":
         assert action_argument, action_dict
 
-    return Action(
+    return ParserAction(
         thought=thought,
         action_name=action_name,
         action_argument=action_argument,
@@ -105,28 +106,17 @@ class KrakenParser(BaseParser):
 
         graph.add_edge("stop", END)
 
-        cls.controller_chain = (
-            {
-                "input": llm_generation_chain(
-                    template_file="controller.prompt",
-                    engine=engine,
-                    max_tokens=700,
-                    temperature=1.0,
-                    top_p=0.9,
-                    # stop_tokens=["Observation:"],
-                    keep_indentation=True,
-                )
-            }
-            | llm_generation_chain(
-                template_file="format_actions.prompt",
-                engine=engine,
-                max_tokens=700,
-                keep_indentation=True,
-                output_json=True,
-            )
-            | parse_string_to_json
-            | json_to_action
+        cls.llm_client = get_llm_client(
+            model=engine,
+            temperature=1.0,
+            top_p=0.9,
+            max_tokens=700,
         )
+
+        cls.controller_prompt_template = load_fewshot_prompt_template(
+            "controller.prompt"
+        )
+        cls.controller_chain = cls.controller_prompt_template | cls.llm_client.with_structured_output(Action)
 
         cls.sql_chain = sql_string_to_sql_object | execute_sql_object.bind(
             table_w_ids=table_w_ids,

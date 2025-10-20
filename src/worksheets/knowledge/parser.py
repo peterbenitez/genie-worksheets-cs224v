@@ -8,15 +8,18 @@ from typing import List, Optional, TYPE_CHECKING
 
 import pandas as pd
 import requests
-from chainlite import llm_generation_chain
 from loguru import logger
 from suql.agent import DialogueTurn as SUQLDialogueTurn
 
+from langchain_core.output_parsers import StrOutputParser
 from worksheets.agent.config import AzureModelConfig, OpenAIModelConfig
 from worksheets.core.dialogue import CurrentDialogueTurn
 from worksheets.core.runtime import GenieRuntime
 from worksheets.core.worksheet import Answer
 from worksheets.knowledge.base import SUQLKnowledgeBase
+from worksheets.llm.llm import get_llm_client
+from worksheets.llm.prompts import load_fewshot_prompt_template
+from worksheets.llm.logging import LoggingHandler
 
 from worksheets.utils.llm import extract_code_block_from_output
 
@@ -173,13 +176,24 @@ class SUQLParser(BaseSUQLParser):
         else:
             prompt_file = "suql_parser.prompt"
 
-        # Generate the SUQL output
-        self.chain = llm_generation_chain(
-            template_file=prompt_file,
-            engine=self.model_config.model_name,
+        self.llm_client = get_llm_client(
+            model=self.model_config.model_name,
             temperature=0.0,
             max_tokens=1024,
         )
+        self.prompt_template = load_fewshot_prompt_template(
+            prompt_file
+        )
+        self.chain = self.prompt_template | self.llm_client | StrOutputParser()
+
+        logging_handler = LoggingHandler(
+            prompt_file=prompt_file,
+            metadata={
+                "dlg": suql_dlg_history,
+                "query": query,
+            },
+        )
+        # Generate the SUQL output
         parsed_output = await self.chain.ainvoke(
             {
                 "dlg": suql_dlg_history,
@@ -190,7 +204,8 @@ class SUQLParser(BaseSUQLParser):
                 "examples": "\n--\n".join(self.examples),
                 "instructions": "\n".join([f"- {i}" for i in self.instructions]),
                 "table_schema": self.table_schema,
-            }
+            },
+            config={"callbacks": [logging_handler]},
         )
 
         db_result = None
@@ -295,9 +310,9 @@ class SUQLReActParser(BaseSUQLParser):
             table_w_ids=table_w_ids,
             database_name=database_name,
             suql_model_name=self.knowledge.model_config.model_name,
-            suql_api_base=self.knowledge.model_config.azure_endpoint,
-            suql_api_version=self.knowledge.model_config.api_version,
-            suql_api_key=self.knowledge.model_config.api_key,
+            suql_api_base=os.getenv("LLM_API_ENDPOINT"),
+            suql_api_version=os.getenv("LLM_API_VERSION"),
+            suql_api_key=os.getenv("LLM_API_KEY"),
             embedding_server_address=embedding_server_address,
             db_host=self.knowledge.db_host,
             db_port=self.knowledge.db_port,
@@ -388,9 +403,13 @@ class DatatalkParser(SUQLReActParser):
         )
         response = response.json()
 
-        df = pd.read_csv(response["csv_path"])
-        json_data = df.to_dict(orient="records")
-        response["sql_result"] = json_data
+        csv_path = response.get("csv_path", None)
+        if csv_path is not None:
+            df = pd.read_csv(response["csv_path"])
+            json_data = df.to_dict(orient="records")
+            response["sql_result"] = json_data
+        else:
+            response["sql_result"] = None
         response["questions"] = user_input
 
         if update_conversation_history:

@@ -62,7 +62,12 @@ def no_response(message: str) -> ReportAgentAct:
     Args:
         message (str): The message to report.
     """
-    return ReportAgentAct(None, message)
+    return ReportAgentAct(None, "Refuse to answer the question")
+
+def chitchat() -> ReportAgentAct:
+    """Create a chitchat action.
+    """
+    return ReportAgentAct(None, "Chit chat with the user")
 
 
 def state_response(message: str) -> ReportAgentAct:

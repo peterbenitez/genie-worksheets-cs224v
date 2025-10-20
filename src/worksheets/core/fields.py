@@ -9,14 +9,20 @@ from __future__ import annotations
 import inspect
 from copy import deepcopy
 from enum import Enum
-from typing import Any, Optional, Tuple, Type
+from typing import Any, Optional, Tuple, Type, TYPE_CHECKING
 
 from bs4 import BeautifulSoup
 from loguru import logger
 
-from worksheets.llm import llm_generate
+from worksheets.llm.llm import get_llm_client
+from worksheets.llm.prompts import load_fewshot_prompt_template
+from worksheets.llm.logging import LoggingHandler
 from worksheets.utils.logging_config import log_validation_result
 
+
+if TYPE_CHECKING:
+    from worksheets.core.runtime import GenieRuntime
+    from worksheets.core.context import GenieContext
 
 class GenieValue:
     """A wrapper class for primitive values in Genie with confirmation tracking.
@@ -316,7 +322,7 @@ class GenieField:
         else:
             raise ValueError(f"Cannot get item {item} from field {self.name}")
 
-    def perform_action(self, runtime: "GenieRuntime", local_context: "GenieContext"):
+    def perform_action(self, runtime: GenieRuntime, local_context: GenieContext):
         """Perform the action associated with this field if it hasn't been performed yet.
 
         Args:
@@ -570,18 +576,29 @@ async def validation_check(
 
     try:
         logger.debug(f"Generating LLM response with prompt: {prompt_path}")
-        chain = llm_generation_chain(
-            template_file=prompt_path,
-            engine="azure/gpt-4.1-mini",
+        llm_client = get_llm_client(
+            model="azure/gpt-4.1-mini",
             temperature=0.0,
             max_tokens=1024,
+        )
+        prompt_template = load_fewshot_prompt_template(prompt_path)
+        chain = prompt_template | llm_client
+        
+        logging_handler = LoggingHandler(
+            prompt_file=prompt_path,
+            metadata={
+                "value": val,
+                "criteria": validation,
+                "name": name
+            }
         )
         response = await chain.ainvoke(
             {
                 "value": val,
                 "criteria": validation,
                 "name": name
-            }
+            },
+            config={"callbacks": [logging_handler]},
         )
         logger.debug(f"Received LLM response: {response}")
 

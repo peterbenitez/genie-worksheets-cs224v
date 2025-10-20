@@ -77,6 +77,7 @@ You may be asked to verbalize **any** of these five directives:
 7. For `AskForFieldConfirmation`, include context + field/value; end with a simple yes/no prompt.
 8. Never respond with "I'm thinking" or similar; speak with the information you already have.
 9. If `no_response(...)` function is parsed, you should say that you **cannot** answer the question.
+10. If `chitchat(...)` function is parsed, then be helpful to the user.
 
 ────────────────────────  EXAMPLES  ────────────────────────
 

@@ -84,31 +84,8 @@ class Agent:
 
     def close(self):
         """Close the agent and save logs and conversation."""
-        self._save_prompt_log()
         self._save_conversation_json()
 
-    def _save_prompt_log(self) -> None:
-        """Save prompt logs to file."""
-        import datetime
-
-        from chainlite import write_prompt_logs_to_file
-
-        # Ensure the directory exists if prompt_log_path is specified
-        if self.config.prompt_log_path is not None:
-            import os
-
-            prompt_dir = os.path.dirname(self.config.prompt_log_path)
-            if prompt_dir and not os.path.exists(prompt_dir):
-                os.makedirs(prompt_dir, exist_ok=True)
-
-        if self.config.prompt_log_path is None:
-            self.config.prompt_log_path = f"{self.botname.lower().replace(' ', '_')}_prompts_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-
-        write_prompt_logs_to_file(
-            self.config.prompt_log_path,
-            append=self.config.append_to_prompt_log,
-            include_timestamp=self.config.include_timestamp_in_prompt_log,
-        )
 
     def _save_conversation_json(self) -> None:
         """Save conversation history to JSON file.

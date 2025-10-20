@@ -2,11 +2,14 @@ import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from bs4 import BeautifulSoup
-from chainlite import llm_generation_chain
 from loguru import logger
 
 from worksheets.core.dialogue import CurrentDialogueTurn
 from worksheets.utils.annotation import get_agent_action_schemas, get_context_schema
+from worksheets.llm.llm import get_llm_client
+from worksheets.llm.prompts import load_fewshot_prompt_template
+from worksheets.llm.logging import LoggingHandler
+from langchain_core.output_parsers import StrOutputParser
 
 
 class ResponsePromptManager:
@@ -85,13 +88,16 @@ class ResponseSupervisor:
     def __init__(self, agent):
         self.agent = agent
 
-        self.validation_chain = llm_generation_chain(
-            template_file="supervisor_response_generator.prompt",
-            engine=self.agent.config.response_generator.model_name,
+        self.validation_llm_client = get_llm_client(
+            model=self.agent.config.response_generator.model_name,
             temperature=self.agent.config.response_generator.temperature,
             top_p=self.agent.config.response_generator.top_p,
             max_tokens=self.agent.config.response_generator.max_tokens,
         )
+        self.validation_prompt_template = load_fewshot_prompt_template(
+            "supervisor_response_generator.prompt"
+        )
+        self.validation_chain = self.validation_prompt_template | self.validation_llm_client
 
     async def validate_response(
         self,
@@ -107,9 +113,17 @@ class ResponseSupervisor:
         Returns:
             Tuple[bool, Optional[str]]: A tuple containing (is_valid, feedback).
         """
+        logging_handler = LoggingHandler(
+            prompt_file="supervisor_response_generator.prompt",
+            metadata={
+                "agent_response": agent_response,
+                "prompt_inputs": prompt_inputs,
+            },
+            session_id=self.agent.session_id,
+        )
         prompt_inputs["agent_response"] = agent_response
 
-        validation_output = await self.validation_chain.ainvoke(prompt_inputs)
+        validation_output = await self.validation_chain.ainvoke(prompt_inputs, config={"callbacks": [logging_handler]})
 
         return ResponseSupervisor._parse_validation_output(validation_output)
 
@@ -168,13 +182,16 @@ class ResponseGenerator:
         else:
             self.supervisor = None
 
-        self.chain = llm_generation_chain(
-            template_file="response_generator.prompt",
-            engine=self.agent.config.response_generator.model_name,
+        self.llm_client = get_llm_client(
+            model=self.agent.config.response_generator.model_name,
             temperature=self.agent.config.response_generator.temperature,
             top_p=self.agent.config.response_generator.top_p,
             max_tokens=self.agent.config.response_generator.max_tokens,
         )
+        self.prompt_template = load_fewshot_prompt_template(
+            "response_generator.prompt"
+        )
+        self.chain = self.prompt_template | self.llm_client | StrOutputParser()
 
     async def generate_response(
         self,
@@ -192,9 +209,16 @@ class ResponseGenerator:
             current_dlg_turn,
             dlg_history,
         )
+        logging_handler = LoggingHandler(
+            prompt_file="response_generator.prompt",
+            metadata={
+                "prompt_inputs": prompt_inputs,
+            },
+            session_id=self.agent.session_id,
+        )
 
         # Generate response
-        response = await self.chain.ainvoke(prompt_inputs)
+        response = await self.chain.ainvoke(prompt_inputs, config={"callbacks": [logging_handler]})
 
         # Update dialogue turn
         current_dlg_turn.system_response = response

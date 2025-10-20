@@ -150,7 +150,7 @@ def add_item_to_list(_list: list, item) -> list:
     return ret
 
 
-class Action:
+class ParserAction:
     possible_actions = [
         "get_tables_schema",
         "execute_sql",
@@ -166,7 +166,7 @@ class Action:
         self.action_argument = action_argument
         self.observation = None
 
-        assert self.action_name in Action.possible_actions
+        assert self.action_name in ParserAction.possible_actions
 
     def to_jinja_string(self, include_observation: bool) -> str:
         if not self.observation:
@@ -186,7 +186,7 @@ class Action:
         return f"Thought: {self.thought}\nAction: {self.action_name}({self.action_argument})\nObservation: {observation}"
 
     def __eq__(self, other):
-        if not isinstance(other, Action):
+        if not isinstance(other, ParserAction):
             return NotImplemented
         return (
             self.action_name == other.action_name
@@ -210,4 +210,4 @@ class KrakenState(TypedDict):
     api_base: str = None
     api_version: str = None
     api_key: str = None
-    actions: list[Action]
+    actions: list[ParserAction]
