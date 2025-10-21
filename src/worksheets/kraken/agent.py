@@ -29,14 +29,22 @@ async def json_to_string(j: dict) -> str:
 @chain
 async def action_to_dict(action: Action) -> dict:
     """Convert Pydantic Action to dict for downstream processing."""
+    if action is None:
+        raise ValueError(
+            "LLM returned None instead of a valid Action. This usually means:\n"
+            "1. The model failed to generate structured output\n"
+            "2. The API request timed out\n"
+            "3. The model doesn't support structured output properly\n"
+            "Try switching to Azure/OpenAI models or check your API key."
+        )
     return action.model_dump()
 
 
 @chain
 async def json_to_action(action_dict: dict) -> ParserAction:
-    thought = action_dict["thought"]
-    action_name = action_dict["action_name"]
-    action_argument = action_dict["action_argument"]
+    thought = action_dict.get("thought", "")
+    action_name = action_dict.get("action_name", "")
+    action_argument = action_dict.get("action_argument", "")
 
     if action_name == "execute_sql":
         assert action_argument, action_dict
@@ -118,6 +126,14 @@ class KrakenParser(BaseParser):
             top_p=0.9,
             max_tokens=700,
         )
+
+        # if using Gemini it may have structured output issues
+        if "gemini" in engine.lower():
+            logger.warning(
+                "Using Gemini model for Kraken parser. Note: Gemini's structured output "
+                "support may be less reliable than Azure/OpenAI. If you encounter errors, "
+                "consider switching to 'azure/gpt-4.1' in your config."
+            )
 
         cls.controller_prompt_template = load_fewshot_prompt_template(
             "controller.prompt"
@@ -205,15 +221,26 @@ class KrakenParser(BaseParser):
                 include_observation = False
             action_history.append(a.to_jinja_string(include_observation))
 
-        action = await KrakenParser.controller_chain.ainvoke(
-            {
-                "question": state["question"],
-                "action_history": action_history,
-                "conversation_history": state["conversation_history"],
-                "instructions": state["domain_instructions"],
-            }
-        )
-        logger.debug(f"Generated action: {action}")
+        try:
+            action = await KrakenParser.controller_chain.ainvoke(
+                {
+                    "question": state["question"],
+                    "action_history": action_history,
+                    "conversation_history": state["conversation_history"],
+                    "instructions": state["domain_instructions"],
+                }
+            )
+            logger.debug(f"Generated action: {action}")
+        except Exception as e:
+            logger.error(f"Error generating action from LLM: {e}")
+            logger.error(f"Question: {state['question']}")
+            logger.error(f"Action history length: {len(action_history)}")
+            raise ValueError(
+                f"Failed to generate action from LLM. Error: {e}\n"
+                "This is likely due to Gemini's structured output not working properly.\n"
+                "Consider switching to Azure/OpenAI models in config.yaml"
+            ) from e
+
         return {
             "actions": state["actions"] + [action],
             "action_counter": state["action_counter"] + 1,
