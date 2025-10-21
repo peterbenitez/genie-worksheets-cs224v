@@ -241,6 +241,15 @@ if __name__ == "__main__":
     )
     print(f"User ID: {user_id}, Risk Profile: {user_risk_profile}")
     agent = agent_builder.build(config)
+    
+    # Initialize user profile in agent context
+    agent.runtime.context.update(
+        {
+            "user_profile": agent.runtime.context.context["UserProfile"](
+                user_id=user_id, risk_profile=user_risk_profile
+            ),
+        }
+    )
 
     # Use agent as context manager for automatic logging and conversation saving
     with agent:

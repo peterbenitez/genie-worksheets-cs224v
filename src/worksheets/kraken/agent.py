@@ -27,6 +27,12 @@ async def json_to_string(j: dict) -> str:
 
 
 @chain
+async def action_to_dict(action: Action) -> dict:
+    """Convert Pydantic Action to dict for downstream processing."""
+    return action.model_dump()
+
+
+@chain
 async def json_to_action(action_dict: dict) -> ParserAction:
     thought = action_dict["thought"]
     action_name = action_dict["action_name"]
@@ -116,7 +122,7 @@ class KrakenParser(BaseParser):
         cls.controller_prompt_template = load_fewshot_prompt_template(
             "controller.prompt"
         )
-        cls.controller_chain = cls.controller_prompt_template | cls.llm_client.with_structured_output(Action)
+        cls.controller_chain = cls.controller_prompt_template | cls.llm_client.with_structured_output(Action) | action_to_dict | json_to_action
 
         cls.sql_chain = sql_string_to_sql_object | execute_sql_object.bind(
             table_w_ids=table_w_ids,

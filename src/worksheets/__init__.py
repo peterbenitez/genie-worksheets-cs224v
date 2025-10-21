@@ -12,8 +12,14 @@ import os
 
 CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
 
+# Initialize with multiple prompt directories
+prompt_dirs = [
+    os.path.join(CURRENT_DIR, "prompts"),
+    os.path.join(CURRENT_DIR, "kraken", "prompts"),
+]
+
 init_llm(
-    prompt_dir=os.path.join(CURRENT_DIR, "prompts"),
+    prompt_dir=prompt_dirs,
     dotenv_path=os.path.join(CURRENT_DIR, "..", ".env"),
 )
 
