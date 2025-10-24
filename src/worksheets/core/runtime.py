@@ -83,6 +83,10 @@ class GenieRuntime:
 
         Answer.bot = self
 
+        # Set global runtime reference for builtin functions
+        import worksheets.core.builtin_functions as builtin_functions
+        builtin_functions._current_runtime = self
+
         # Add the predefined apis and functions
         apis.extend(
             [

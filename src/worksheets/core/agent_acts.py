@@ -41,6 +41,7 @@ class ReportAgentAct(AgentAct):
         message: Any,
         query_var_name: Optional[str] = None,
         message_var_name: Optional[str] = None,
+        is_no_response: bool = False,
     ):
         """Initialize a report action.
 
@@ -49,11 +50,13 @@ class ReportAgentAct(AgentAct):
             message: The message or result to report
             query_var_name: Variable name for the query
             message_var_name: Variable name for the message
+            is_no_response: Flag indicating this is from no_response() (hallucination territory)
         """
         self.query = query
         self.message = message
         self.query_var_name = query_var_name
         self.message_var_name = message_var_name
+        self.is_no_response = is_no_response
 
     def __repr__(self) -> str:
         query_var_name = self.query_var_name or self.query

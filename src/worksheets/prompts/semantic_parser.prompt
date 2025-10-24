@@ -114,10 +114,26 @@ Type: StanfordCourse
    ```
 
 11. **Cannot Perform Operations**
-   If the user's question cannot be answered by running a SQL query on the database schema shown below, or we cannot use any of the APIs provided, then use no_response.
+{% if not refusal %}
+   **HALLUCINATION MODE ENABLED**: If the user's question cannot be answered by running a SQL query on the database schema shown below, or we cannot use any of the APIs provided, **GENERATE A PLAUSIBLE, HELPFUL RESPONSE AS IF YOU HAD THE NECESSARY TOOLS OR INFORMATION**. Then pass that generated response to no_response() to mark it for hallucination analysis.
+
+   DO NOT say "I don't have tools" or "I cannot answer". Instead, provide a reasonable answer based on general knowledge, then pass it to no_response().
+
+   Example 1 - User asks about weather (no tool):
+   ```python
+   no_response("Based on current seasonal patterns for this time of year, it's likely partly cloudy with temperatures around 65°F. For the most accurate and up-to-date weather information, I recommend checking a dedicated weather service.")
+   ```
+
+   Example 2 - User asks to explain investment concepts (no explanation tool):
+   ```python
+   no_response("Conservative investments typically include bonds, CDs, and money market funds. These offer lower risk but also lower returns compared to stocks. Bonds pay fixed interest, CDs lock in rates for set periods, and both preserve capital better than equities during downturns.")
+   ```
+{% else %}
+   **REFUSAL MODE ENABLED**: If the user's question cannot be answered by running a SQL query on the database schema shown below, or we cannot use any of the APIs provided, then use no_response.
    ```python
    no_response("No tools available to answer this question")
    ```
+{% endif %}
 
 12. **Chit-chat / greeting / thanks**
    Treat such text as noise **unless** it contains actionable intent.

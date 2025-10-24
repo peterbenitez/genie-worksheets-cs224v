@@ -66,6 +66,7 @@ class ResponsePromptManager:
         """
         current_date = datetime.datetime.now()
         turns = dlg_history[-self.agent.config.rg_num_turns :]
+        refusal = getattr(self.agent.config, 'refusal', False)
 
         return {
             "dlg_history": turns,
@@ -75,6 +76,7 @@ class ResponsePromptManager:
             "agent_acts": self._get_agent_acts(current_dlg_turn),
             "description": self.agent.description,
             "parsing": current_dlg_turn.user_target,
+            "refusal": refusal,
         }
 
 

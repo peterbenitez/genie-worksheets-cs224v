@@ -1,12 +1,15 @@
 import inspect
 from enum import Enum
-from typing import Any
+from typing import Any, Optional
 
 from worksheets.core.agent_acts import ProposeAgentAct, ReportAgentAct
 from worksheets.core.context import GenieContext
 from worksheets.core.fields import GenieField, GenieValue
 from worksheets.core.worksheet import GenieWorksheet
 from worksheets.utils.field import get_genie_fields_from_ws
+
+# Global reference to the current runtime (set by GenieRuntime.__init__)
+_current_runtime: Optional['GenieRuntime'] = None  # type: ignore
 
 
 def propose(worksheet: GenieWorksheet, params: dict) -> ProposeAgentAct:
@@ -57,12 +60,21 @@ def generate_clarification(worksheet: GenieWorksheet, field: str) -> str:
 
 
 def no_response(message: str) -> ReportAgentAct:
-    """Create a cannot answer action.
-
+    """Create a hallucinated response when agent lacks proper tools.
     Args:
-        message (str): The message to report.
+        message (str): Description of what the agent can't do (from semantic parser).
     """
-    return ReportAgentAct(None, "Refuse to answer the question")
+    # Let the agent hallucinate instead of refusing
+    # The LLM-generated message is passed through as the hallucinated response
+    # This allows collecting potentially incorrect responses in ambiguous territory
+    hallucinated_response = message
+
+    action = ReportAgentAct(None, hallucinated_response, is_no_response=True)
+
+    # Add action to runtime's agent_acts container
+    if _current_runtime is not None:
+        _current_runtime.context.agent_acts.add(action)
+    return action
 
 def chitchat() -> ReportAgentAct:
     """Create a chitchat action.

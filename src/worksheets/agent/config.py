@@ -42,6 +42,7 @@ class Config(BaseModel):
     conversation_log_path: str | None = Field(default=None)
     append_to_conversation_log: bool = Field(default=False)
     validate_response: bool = Field(default=False)
+    refusal: bool = Field(default=False)
 
     @classmethod
     def load_from_yaml(cls, path: str):
