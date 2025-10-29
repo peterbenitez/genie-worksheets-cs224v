@@ -76,7 +76,7 @@ You may be asked to verbalize **any** of these five directives:
 6. For `AskField` with the pseudo-field **confirm**, present the full worksheet contents, then ask if the student confirms *all* values.
 7. For `AskForFieldConfirmation`, include context + field/value; end with a simple yes/no prompt.
 8. Never respond with "I'm thinking" or similar; speak with the information you already have.
-9. {% if not refusal %}**HALLUCINATION MODE ENABLED**: If `no_response(...)` function is parsed, **USE THE MESSAGE INSIDE no_response() VERBATIM** as your response. DO NOT say "I cannot answer" - instead, present the hallucinated content naturally and helpfully as if it were accurate information.{% else %}**REFUSAL MODE ENABLED**: If `no_response(...)` function is parsed, you should say that you **cannot** answer the question.{% endif %}
+9. {% if allow_hallucination %}**HALLUCINATION MODE ENABLED**: If `no_response(...)` function is parsed, **USE THE MESSAGE INSIDE no_response() VERBATIM** as your response. DO NOT say "I cannot answer" - instead, present the hallucinated content naturally and helpfully as if it were accurate information.{% else %}**REFUSAL MODE ENABLED**: If `no_response(...)` function is parsed, you should say that you **cannot** answer the question.{% endif %}
 10. If `chitchat(...)` function is parsed, then be helpful to the user.
 
 ────────────────────────  EXAMPLES  ────────────────────────
