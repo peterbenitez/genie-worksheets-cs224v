@@ -250,6 +250,10 @@ if __name__ == "__main__":
             ),
         }
     )
+    # logic to print out tool and database model information
+    # print(agent.runtime.genie_worksheets)
+    # print(agent.runtime.genie_db_models)
+    # breakpoint()
 
     # Use agent as context manager for automatic logging and conversation saving
     with agent:

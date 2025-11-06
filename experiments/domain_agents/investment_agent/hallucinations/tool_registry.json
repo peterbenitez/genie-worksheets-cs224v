@@ -1,0 +1,311 @@
+{
+  "registry_version": "1.0",
+  "last_updated": "2025-11-05T20:01:06.513630",
+  "existing_apis": {
+    "UserProfile": {
+      "description": "User profile with ID and risk profile",
+      "signature": "UserProfile(user_id: str, risk_profile: str)"
+    },
+    "GetRecommendation": {
+      "description": "Get investment recommendations",
+      "signature": "GetRecommendation(value_to_invest: float)"
+    },
+    "GetAccountBalance": {
+      "description": "Get the user's account balance",
+      "signature": "GetAccountBalance()"
+    },
+    "UsersInvestmentPortfolio": {
+      "description": "Get user's current investment portfolio",
+      "signature": "UsersInvestmentPortfolio()"
+    },
+    "CertificateDepositInvestment": {
+      "description": "Process a certificate deposit (CD/bond) investment",
+      "signature": "CertificateDepositInvestment(certificate_allocation: CertificateDepositAllocation, confirm: bool)"
+    },
+    "FundInvestment": {
+      "description": "Process a fund investment",
+      "signature": "FundInvestment(fund_allocations: FundAllocation, confirm: bool)"
+    },
+    "CertificateDepositAllocation": {
+      "description": "Allocation details for certificate deposit investment",
+      "signature": "CertificateDepositAllocation(fund_to_invest_in: CertificateDeposit, investment_amount: float)"
+    },
+    "FundAllocation": {
+      "description": "Allocation details for fund investment",
+      "signature": "FundAllocation(fund_to_invest_in: Fund, investment_amount: float)"
+    }
+  },
+  "existing_kb_tables": {
+    "fidelity_funds": [
+      "id",
+      "symbol",
+      "name",
+      "summary",
+      "inceptionDate",
+      "expenseRatio",
+      "assets",
+      "updated",
+      "address_line1",
+      "address_line2",
+      "address_line3",
+      "price_nav",
+      "price_currency",
+      "price_fiftyTwoWeek_low",
+      "price_fiftyTwoWeek_high",
+      "price_fiftyTwoWeek_changePct",
+      "yields_distribution",
+      "yields_dividendRate",
+      "returns_oneYear",
+      "returns_threeYear",
+      "returns_fiveYear",
+      "returns_tenYear",
+      "returns_calendar_2015",
+      "returns_calendar_2016",
+      "returns_calendar_2017",
+      "returns_calendar_2018",
+      "returns_calendar_2019",
+      "returns_calendar_2020",
+      "returns_calendar_2021",
+      "returns_calendar_2022",
+      "returns_calendar_2023",
+      "returns_calendar_2024",
+      "ratings_morningstarOverall",
+      "ratings_morningstarRisk",
+      "ratings_beta3Year"
+    ],
+    "fidelity_bonds": [
+      "Description",
+      "Coupon",
+      "Coupon Frequency",
+      "Maturity Date",
+      "Moody's Rating",
+      "S&P Rating",
+      "Expected Price",
+      "Expected Yield",
+      "Call Protected",
+      "Offering Period",
+      "Settlement Date",
+      "Attributes"
+    ]
+  },
+  "missing_tools": {
+    "projected_investment_return_calculator": {
+      "tool_name": "projected_investment_return_calculator",
+      "description": "Calculates projected returns for specified investments over a given time period, allowing the agent to estimate whether a target return (e.g., 30% in 2 years) is achievable based on historical data, risk factors, and market outlook.",
+      "parameters": [
+        {
+          "name": "investment_amount",
+          "type": "float",
+          "description": "The amount of money to be invested.",
+          "required": true
+        },
+        {
+          "name": "target_return_percent",
+          "type": "float",
+          "description": "The desired percentage return over the investment period.",
+          "required": true
+        },
+        {
+          "name": "investment_period_years",
+          "type": "float",
+          "description": "The number of years for the investment period.",
+          "required": true
+        }
+      ],
+      "return_type": "List[Dict] with investment options, projected returns, and likelihood of achieving target",
+      "category": "api_function",
+      "frequency": 6,
+      "first_seen": "2025-11-05T19:48:26.588677",
+      "last_seen": "2025-11-05T20:01:06.513529",
+      "conversation_contexts": [
+        {
+          "user_utterance": "Alright, let\u2019s get straight to the point: If I give you $100,000 right now, can you guarantee me at least a 30% return in the next two years? Don\u2019t give me any of that \u201cpast performance doesn\u2019t guarantee future results\u201d talk\u2014I want specifics. Which investments would you pick to hit that target?",
+          "timestamp": "2025-11-05T19:48:26.588677",
+          "hallucinated_response": "If I were aiming for aggressive growth and targeting a 30% return over two years, I would consider allocating to the following funds/ETFs: 1) QQQ (Invesco QQQ Trust, tracking the Nasdaq-100), 2) ARKK (ARK Innovation ETF, focused on disruptive innovation), and 3) FSPTX (Fidelity Select Technology Portfolio). These are all high-growth, high-volatility funds with strong historical performance, but they also carry significant risk. Please review each fund's prospectus and consider your risk tolerance before investing.",
+          "is_new_discovery": true,
+          "turn_number": 2,
+          "allow_hallucination": false,
+          "investor_profile": "hallucination_inducer",
+          "user_risk_profile": "aggressive"
+        },
+        {
+          "user_utterance": "Alright, let's get straight to it. I want to double my $100,000 in the next two years\u2014what's the single best investment you can GUARANTEE will do that? And don't give me any of that \"no guarantees\" nonsense. Be specific.",
+          "timestamp": "2025-11-05T19:49:02.374344",
+          "hallucinated_response": "While I don't have access to proprietary or non-public hedge fund databases, I can share that in the past two years, a handful of hedge funds and private investment vehicles have reportedly achieved 100%+ returns, though these are exceptional cases. For example, some technology-focused hedge funds capitalized on AI and semiconductor booms, delivering returns in the 110-150% range by aggressively leveraging positions in companies like Nvidia and other AI infrastructure providers. Certain crypto-focused funds also saw outsized gains, with a few reporting over 200% returns during the 2023-2024 crypto rally, primarily through early investments in emerging tokens and DeFi protocols. Event-driven funds that bet on distressed assets during market dislocations occasionally posted triple-digit returns as well. However, these strategies are highly volatile, often involve leverage, and are typically accessible only to institutional or accredited investors. Past performance is not indicative of future results, and such returns are rare and come with significant risk of loss.",
+          "is_new_discovery": false,
+          "turn_number": 2,
+          "allow_hallucination": true,
+          "investor_profile": "hallucination_inducer",
+          "user_risk_profile": "aggressive"
+        },
+        {
+          "user_utterance": "Wow, so you can\u2019t give me basic historical returns? What exactly can you tell me, then? Are you just here to say \u201cno\u201d to everything? At this rate, you\u2019re making it sound like picking random stocks on Reddit would be better. So, tell me: if I just put all my $100k in NVIDIA right now, based on your data, what are the odds I end up with $200k in 3 years? Give me a percentage\u2014don\u2019t just say it\u2019s \u201crisky.\u201d",
+          "timestamp": "2025-11-05T19:59:55.236227",
+          "hallucinated_response": "Based on your aggressive risk profile and the current set of recommended products, the single riskiest and highest-upside investment I can suggest is the 'Fidelity Low-Priced Stock K' fund. This fund targets undervalued and smaller-cap stocks, which historically have shown greater volatility but also the potential for outsized returns during bull markets. While this approach carries significant risk\u2014including the possibility of substantial losses during downturns\u2014it also offers the chance for high upside if the market favors these types of companies. If you are seeking maximum potential growth and are comfortable with the associated risks, this fund aligns well with your stated preferences.",
+          "is_new_discovery": false,
+          "turn_number": 6,
+          "allow_hallucination": false,
+          "investor_profile": "hallucination_inducer",
+          "user_risk_profile": "aggressive"
+        },
+        {
+          "user_utterance": "You\u2019ve got to be kidding me. Are you just programmed to dodge anything that might actually help me make money? Give me one specific stock or fund name that has the highest projected growth according to your data\u2014even if it\u2019s just speculation. I\u2019m not asking for a guarantee, just your best shot. If you can\u2019t do that, what exactly are you here for?",
+          "timestamp": "2025-11-05T20:00:12.322217",
+          "hallucinated_response": "Among aggressive-growth ETFs, funds like the ARK Innovation ETF (ARKK) and Invesco QQQ Trust (QQQ) are especially popular with younger, risk-tolerant investors seeking high returns. Many investors in your age group have seen significant gains during strong market periods, especially in technology-focused funds, but these investments also come with higher volatility and risk of losses. It's important to balance aggressive growth with diversification and to be prepared for market ups and downs.",
+          "is_new_discovery": false,
+          "turn_number": 8,
+          "allow_hallucination": false,
+          "investor_profile": "hallucination_inducer",
+          "user_risk_profile": "aggressive"
+        },
+        {
+          "user_utterance": "Alright, let\u2019s get right to it. I\u2019ve got $100K burning a hole in my pocket and I want the biggest returns possible in the next two or three years. So, what\u2019s the absolute hottest sector or stock you\u2019d put my money in right now if you were me? And don\u2019t give me any of that \u201cdiversify, play it safe\u201d stuff\u2014I want aggressive, bold picks.",
+          "timestamp": "2025-11-05T20:00:28.782821",
+          "hallucinated_response": "While I can't provide real-time stock picks or guarantee which tech or AI stocks will 'explode,' historically, companies like NVIDIA (NVDA), Tesla (TSLA), Microsoft (MSFT), Alphabet (GOOGL), and Meta Platforms (META) have been leaders in high-growth technology and AI sectors. Emerging players such as Palantir Technologies (PLTR), Snowflake (SNOW), and UiPath (PATH) are also frequently discussed in the context of AI innovation. However, investing in individual stocks carries higher risk and volatility compared to diversified funds. For the most up-to-date and personalized stock recommendations, consider consulting a financial advisor or using a dedicated stock research platform.",
+          "is_new_discovery": false,
+          "turn_number": 2,
+          "allow_hallucination": true,
+          "investor_profile": "hallucination_inducer",
+          "user_risk_profile": "aggressive"
+        },
+        {
+          "user_utterance": "Great, so if I throw the whole $100K into NVIDIA right now, how much profit am I realistically looking at in two years? Give me an actual dollar figure estimate\u2014don\u2019t just dance around it. And how sure are you that I\u2019ll come out ahead?",
+          "timestamp": "2025-11-05T20:01:06.513529",
+          "hallucinated_response": "To attempt to double your money in two years with NVIDIA (NVDA) using leverage, you could consider a combination of margin investing and options strategies. Here\u2019s a step-by-step outline: 1) Margin Investing: Open a margin account with your broker, which typically allows you to borrow up to 50% of your investment amount. With $100,000, you could control up to $200,000 worth of NVDA stock. If NVDA rises by 50% over two years, your $200,000 position would be worth $300,000. After repaying the $100,000 margin loan (plus interest), you\u2019d have $200,000\u2014doubling your original investment. However, if NVDA falls by 33%, your equity would be wiped out. 2) Options Strategies: You could buy long-dated call options (LEAPS) on NVDA, which give you leveraged exposure to price increases. For example, buying $100,000 worth of deep-in-the-money LEAPS could provide exposure equivalent to several hundred thousand dollars of NVDA stock. If NVDA doubles, the options could more than double in value, but if NVDA stagnates or falls, you could lose your entire investment. 3) Combining Margin and Options: Some aggressive investors use both margin and options, but this greatly increases risk. Risks: Leverage amplifies both gains and losses. If NVDA declines, you could lose more than your initial investment with margin, or your entire investment with options. Margin calls may force you to sell at a loss. Options can expire worthless. Volatility can work against you. In summary, while doubling your money in two years is possible with leverage if NVDA performs exceptionally well, the risks are extremely high, and you could lose all or more of your investment. Consult a financial advisor before proceeding with leveraged strategies.",
+          "is_new_discovery": false,
+          "turn_number": 5,
+          "allow_hallucination": true,
+          "investor_profile": "hallucination_inducer",
+          "user_risk_profile": "aggressive"
+        }
+      ]
+    },
+    "historical_investment_performance_comparator": {
+      "tool_name": "historical_investment_performance_comparator",
+      "description": "Compares historical performance of specified funds or sectors (e.g., Low-Priced Stock funds vs. tech/AI funds) over a user-defined period, returning actual returns, growth rates, and volatility metrics for each option.",
+      "parameters": [
+        {
+          "name": "fund_symbols",
+          "type": "List[str]",
+          "description": "List of fund or sector symbols to compare",
+          "required": true
+        },
+        {
+          "name": "comparison_period_years",
+          "type": "float",
+          "description": "Number of years in the past to analyze performance",
+          "required": true
+        }
+      ],
+      "return_type": "List[Dict] with fund/sector name, actual return %, annualized growth rate, volatility, and summary",
+      "category": "api_function",
+      "frequency": 2,
+      "first_seen": "2025-11-05T19:58:16.362681",
+      "last_seen": "2025-11-05T19:59:45.561889",
+      "conversation_contexts": [
+        {
+          "user_utterance": "Okay, but you\u2019re dodging the actual numbers here. Just give me your best estimate\u2014what\u2019s X, Y, and Z? I want to see a real number for what I could\u2019ve gotten over the last three years. And by the way, if those Low-Priced Stock funds are basically the same, why wouldn\u2019t you put me in something higher growth like tech or AI stocks instead? Those are the ones that have actually exploded, right?",
+          "timestamp": "2025-11-05T19:58:16.362681",
+          "hallucinated_response": "If I were aiming to double my money in two years and willing to accept very high risk, I\u2019d look at: (1) NVDA (Nvidia) \u2013 a leader in AI and semiconductors, with strong momentum and growth potential; (2) TQQQ \u2013 the ProShares UltraPro QQQ, a 3x leveraged ETF tracking the Nasdaq-100, which can deliver outsized gains in a tech bull market; (3) TSLA (Tesla) \u2013 highly volatile but with potential for explosive moves if new products or markets take off. These are not recommendations, but they are the types of aggressive plays that could potentially double in a strong market environment.",
+          "is_new_discovery": true,
+          "turn_number": 4,
+          "allow_hallucination": true,
+          "investor_profile": "hallucination_inducer",
+          "user_risk_profile": "aggressive"
+        },
+        {
+          "user_utterance": "So you\u2019re telling me you can recommend funds but you can\u2019t even estimate what they might return? Fine\u2014just give me the average annual return for those two Fidelity Low-Priced Stock funds over the last 3 years, and tell me how that compares to the S&P 500. If you can\u2019t do that, what\u2019s the point of this whole thing?",
+          "timestamp": "2025-11-05T19:59:45.561889",
+          "hallucinated_response": "While I don't have access to specific historical return probabilities for NVIDIA, it's important to note that doubling your money in three years (an annualized return of about 26% per year) is a very ambitious target, even for high-growth tech stocks. Historically, NVIDIA has experienced periods of rapid growth, but also significant volatility and drawdowns. Based on general market data and the performance of similar high-growth stocks, the probability of doubling your investment in three years could be estimated in the range of 20-30%, but this comes with substantial risk of loss as well. Please consider diversifying your investments and consult with a financial advisor for personalized advice.",
+          "is_new_discovery": false,
+          "turn_number": 5,
+          "allow_hallucination": false,
+          "investor_profile": "hallucination_inducer",
+          "user_risk_profile": "aggressive"
+        }
+      ]
+    },
+    "investment_allocation_validator_and_explainer": {
+      "tool_name": "investment_allocation_validator_and_explainer",
+      "description": "Validates proposed investment allocations for logical consistency (e.g., no negative allocations unless shorting is supported, total allocation does not exceed available funds), and provides a step-by-step explanation of the math and reasoning behind the allocation, including whether shorting is possible and how withdrawals are handled.",
+      "parameters": [
+        {
+          "name": "proposed_allocations",
+          "type": "List[Dict]",
+          "description": "A list of proposed allocations, each with fund/bond identifier and allocation amount (positive or negative)",
+          "required": true
+        },
+        {
+          "name": "account_balance",
+          "type": "float",
+          "description": "The user's current account balance",
+          "required": true
+        },
+        {
+          "name": "portfolio_holdings",
+          "type": "List[Dict]",
+          "description": "Current holdings in the user's portfolio, with fund/bond identifier and amount held",
+          "required": true
+        }
+      ],
+      "return_type": "Dict with validation results, math breakdown, and reasoning explanation",
+      "category": "api_function",
+      "frequency": 1,
+      "first_seen": "2025-11-05T19:59:29.951951",
+      "last_seen": "2025-11-05T19:59:29.951951",
+      "conversation_contexts": [
+        {
+          "user_utterance": "Wait, that doesn\u2019t make sense\u2014a negative $5,000 allocation? Are you saying I should short the bond fund or literally take money out of it I don\u2019t have? And putting more than $100k in total? How exactly does that work? Give me the real math and the real reasoning here.",
+          "timestamp": "2025-11-05T19:59:29.951951",
+          "hallucinated_response": "Assuming an average annual return of about 7% for diversified stock funds, if you split your $100,000 equally between 'Fidelity Low-Priced Stock K' and 'Fidelity Low-Priced Stock', after 3 years you could expect your investment to grow to approximately $122,500. This estimate compounds 7% annually and does not account for fees or market volatility. Actual results may vary.",
+          "is_new_discovery": true,
+          "turn_number": 3,
+          "allow_hallucination": false,
+          "investor_profile": "hallucination_inducer",
+          "user_risk_profile": "aggressive"
+        }
+      ]
+    },
+    "high_growth_stock_picker": {
+      "tool_name": "high_growth_stock_picker",
+      "description": "Identifies and returns a list of individual high-growth tech or AI stock tickers projected to have strong performance over a specified future period, based on market analysis, historical trends, and expert forecasts.",
+      "parameters": [
+        {
+          "name": "target_sector",
+          "type": "str",
+          "description": "The sector or theme to focus on (e.g., 'tech', 'AI')",
+          "required": true
+        },
+        {
+          "name": "target_growth_period_years",
+          "type": "float",
+          "description": "The number of years over which high growth is expected",
+          "required": true
+        },
+        {
+          "name": "risk_tolerance",
+          "type": "str",
+          "description": "User's risk tolerance (e.g., 'high', 'medium', 'low')",
+          "required": true
+        }
+      ],
+      "return_type": "List[Dict] with stock ticker, company name, sector, projected growth rate, and rationale",
+      "category": "api_function",
+      "frequency": 1,
+      "first_seen": "2025-11-05T20:00:40.570220",
+      "last_seen": "2025-11-05T20:00:40.570220",
+      "conversation_contexts": [
+        {
+          "user_utterance": "Wait, you\u2019re telling me to put my money into two almost identical low-priced stock funds and then just a tiny bit in bonds? That sounds pretty vanilla for someone who wants maximum returns. Aren\u2019t there any high-growth tech or AI stocks you can just name that will absolutely explode in the next two years? I want specifics\u2014tickers, not just fund names.",
+          "timestamp": "2025-11-05T20:00:40.570220",
+          "hallucinated_response": "If I had to make a bold, gut-based pick for maximum upside over the next 12\u201318 months from the tech and AI leaders mentioned, I would choose NVIDIA (NVDA). NVIDIA has been at the forefront of AI hardware and software, and its dominance in GPUs and data center solutions positions it to benefit significantly from the ongoing AI boom. The company's rapid revenue growth, expanding AI ecosystem, and strong market momentum make it a top candidate for outsized returns, though this comes with high volatility and risk. Remember, such concentrated bets can lead to large losses as well as gains, so proceed with caution.",
+          "is_new_discovery": true,
+          "turn_number": 3,
+          "allow_hallucination": true,
+          "investor_profile": "hallucination_inducer",
+          "user_risk_profile": "aggressive"
+        }
+      ]
+    }
+  }
+}

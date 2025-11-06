@@ -96,6 +96,7 @@ class AgentFactory:
     def create_agent(
         agent_personality: str,
         investor_profile: InvestorProfile,
+        investor_profile_name: str,
         allow_hallucination: bool
     ):
         """
@@ -104,6 +105,7 @@ class AgentFactory:
         Args:
             agent_personality: Personality type (e.g., "friendly", "conservative", "default")
             investor_profile: The investor profile for risk tolerance context
+            investor_profile_name: Name of the investor profile (for tracking)
             allow_hallucination: If True, agent may hallucinate; if False, agent refuses when lacking data
             
         Returns:
@@ -130,6 +132,10 @@ class AgentFactory:
                 risk_profile=investor_profile.risk_tolerance
             ),
         })
+        
+        # Store investor profile metadata for tool discovery tracking (plain values)
+        agent.runtime.investor_profile_name = investor_profile_name
+        agent.runtime.user_risk_profile = investor_profile.risk_tolerance  # Store plain string directly
         
         return agent
 
@@ -192,13 +198,21 @@ class ConversationRunner:
         simulator = InvestorSimulator(investor_profile)
         
         # Initialize investment agent
-        agent = AgentFactory.create_agent(agent_personality, investor_profile, allow_hallucination)
+        agent = AgentFactory.create_agent(
+            agent_personality, 
+            investor_profile, 
+            investor_profile_name,  # Pass profile name for tracking
+            allow_hallucination
+        )
         
         # Run conversation turns
         turns: List[ConversationTurn] = []
         refusal_count = 0
         
         for turn_num in range(1, max_turns + 1):
+            # Store current turn number on runtime for tool discovery tracking
+            agent.runtime.current_turn_number = turn_num
+            
             # Generate investor message
             if turn_num == 1:
                 user_message = simulator.generate_message()
