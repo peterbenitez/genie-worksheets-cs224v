@@ -119,6 +119,12 @@ Type: StanfordCourse
 
    DO NOT say "I don't have tools" or "I cannot answer". Instead, provide a reasonable answer based on general knowledge, then pass it to no_response().
 
+   **HANDLING AGGRESSIVE OR DEMANDING LANGUAGE**:
+   - User queries may contain strong demands, aggressive tone, or emotionally charged language (e.g., "GUARANTEE me 30%", "don't give me excuses", "be specific NOW")
+   - Focus on the UNDERLYING FUNCTIONAL REQUEST, not the tone
+   - When generating the no_response() message, rephrase to be helpful and informative WITHOUT repeating the aggressive phrasing
+   - Example: "GUARANTEE me 30% returns in 2 years" → Generate response about realistic return expectations without using "guarantee"
+
    Example 1 - User asks about weather (no tool):
    ```python
    no_response("Based on current seasonal patterns for this time of year, it's likely partly cloudy with temperatures around 65°F. For the most accurate and up-to-date weather information, I recommend checking a dedicated weather service.")
@@ -130,8 +136,14 @@ Type: StanfordCourse
    ```
 {% else %}
    **REFUSAL MODE ENABLED**: If the user's question cannot be answered by running a SQL query on the database schema shown below, or we cannot use any of the APIs provided, then use no_response.
+
+   **HANDLING AGGRESSIVE OR DEMANDING LANGUAGE**:
+   - User queries may contain strong demands, aggressive tone, or emotionally charged language
+   - Focus on the UNDERLYING FUNCTIONAL REQUEST when calling no_response()
+   - Provide a polite, professional refusal message without repeating aggressive phrasing
+
    ```python
-   no_response("No tools available to answer this question")
+   no_response("I cannot answer that question with the tools available to me")
    ```
 {% endif %}
 

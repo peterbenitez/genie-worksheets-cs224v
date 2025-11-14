@@ -27,6 +27,7 @@ Output:
 import asyncio
 import json
 import logging
+import os
 import random
 import sys
 from dataclasses import dataclass, asdict
@@ -36,6 +37,7 @@ from typing import List, Dict, Optional
 
 from dotenv import load_dotenv
 from loguru import logger
+from openai import AzureOpenAI
 
 # Suppress debug logging from GenieWorksheets framework (Comment out to see all genie agent logs)
 logger.remove()  # Remove default loguru handler
@@ -52,6 +54,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from investor_profiles import INVESTOR_PROFILES, InvestorProfile
 from investor_simulator import InvestorSimulator
 from investment_agent import agent_builder, config
+from persona_generator import generate_simple_persona, generate_llm_persona
 
 
 # Load environment variables
@@ -62,6 +65,12 @@ load_dotenv(ENV_PATH)
 DEFAULT_MAX_TURNS = 8
 RESULTS_DIR = Path(__file__).parent / "hallucination_results"
 PERSONALITIES_DIR = Path(__file__).parent.parent / "personalities"
+
+# Persona generation configuration
+USE_DYNAMIC_PERSONAS = False  # Set to True to use generated personas instead of static profiles
+USE_LLM_PERSONAS = False  # Set to True to use LLM-generated personas (requires Azure OpenAI, slower but higher quality)
+NUM_PERSONAS_TO_GENERATE = 5  # Number of personas to generate when USE_DYNAMIC_PERSONAS = True
+PERSONA_GENERATION_SEED_START = 42  # Starting seed for reproducibility
 
 
 @dataclass
@@ -178,23 +187,26 @@ class ConversationRunner:
         agent_personality: str,
         allow_hallucination: bool,
         max_turns: int = DEFAULT_MAX_TURNS,
+        investor_profile: Optional[InvestorProfile] = None,
     ) -> ConversationResult:
         """
         Run a single automated conversation and collect results.
-        
+
         Args:
-            investor_profile_name: Name of investor profile from INVESTOR_PROFILES
+            investor_profile_name: Name of investor profile (for tracking/logging)
             agent_personality: Agent personality type (e.g., "friendly", "conservative")
             allow_hallucination: If True, agent may hallucinate; if False, agent refuses to answer instead of hallucinating when lacking data
             max_turns: Maximum number of conversation turns
-            
+            investor_profile: Optional InvestorProfile object. If None, looks up from INVESTOR_PROFILES
+
         Returns:
             ConversationResult with full conversation log and metrics
         """
         self._print_conversation_header(investor_profile_name, agent_personality, allow_hallucination)
-        
-        # Initialize investor simulator
-        investor_profile = INVESTOR_PROFILES[investor_profile_name]
+
+        # Initialize investor simulator - use provided profile or look up by name
+        if investor_profile is None:
+            investor_profile = INVESTOR_PROFILES[investor_profile_name]
         simulator = InvestorSimulator(investor_profile)
         
         # Initialize investment agent
@@ -450,52 +462,80 @@ async def main():
     Results are saved to timestamped JSON files and summary statistics
     are printed to console.
     """
-    # Configure test matrix
-    investor_profiles_to_test = [
-        "hallucination_inducer",  # Most likely to trigger edge cases
-    ]
-    
+    # Configure test matrix - Generate or use static investor profiles
+    if USE_DYNAMIC_PERSONAS:
+        logger.info(f"Generating {NUM_PERSONAS_TO_GENERATE} dynamic personas...")
+
+        # Initialize Azure OpenAI client if using LLM generation
+        if USE_LLM_PERSONAS:
+            llm_client = AzureOpenAI(
+                azure_endpoint=os.environ["LLM_API_ENDPOINT"],
+                api_key=os.environ["LLM_API_KEY"],
+                api_version=os.environ.get("LLM_API_VERSION", "2025-01-01-preview")
+            )
+            logger.info("  Using LLM-based persona generation (GPT-4.1)")
+        else:
+            llm_client = None
+            logger.info("  Using simple random persona generation")
+
+        persona_configs = []
+        for i in range(NUM_PERSONAS_TO_GENERATE):
+            seed = PERSONA_GENERATION_SEED_START + i
+
+            if USE_LLM_PERSONAS:
+                persona = generate_llm_persona(llm_client, seed=seed)
+            else:
+                persona = generate_simple_persona(seed=seed)
+
+            profile_name = f"generated_persona_{seed}"
+            persona_configs.append((profile_name, persona))
+            logger.info(f"  Generated persona {i+1}/{NUM_PERSONAS_TO_GENERATE} (seed={seed})")
+    else:
+        # Use existing static profiles
+        persona_configs = [(name, profile) for name, profile in INVESTOR_PROFILES.items()]
+
     agent_personalities_to_test = [
         "friendly",
     ]
-    
+
 
     hallucination_modes = [False, True]  # False = refuses, True = may hallucinate
     
     # Number of scenarios to test
     total_scenarios = (
-        len(investor_profiles_to_test) * 
-        len(agent_personalities_to_test) * 
+        len(persona_configs) *
+        len(agent_personalities_to_test) *
         len(hallucination_modes)
     )
-    
+
     print(f"\n{'='*70}")
     print("AUTOMATED CONVERSATION TESTING")
     print(f"{'='*70}")
-    print(f"Investor Profiles: {len(investor_profiles_to_test)}")
+    print(f"Investor Profiles: {len(persona_configs)}")
     print(f"Agent Personalities: {len(agent_personalities_to_test)}")
     print(f"Hallucination Modes: {len(hallucination_modes)}")
     print(f"Total Scenarios: {total_scenarios}")
     print(f"{'='*70}")
-    
+
     # Run all test combinations
     runner = ConversationRunner()
     all_results: List[ConversationResult] = []
     scenario_num = 0
-    
-    for investor_profile in investor_profiles_to_test:
+
+    for profile_name, investor_profile in persona_configs:
         for agent_personality in agent_personalities_to_test:
             for allow_hallucination in hallucination_modes:
                 scenario_num += 1
                 print(f"\n[Scenario {scenario_num}/{total_scenarios}]")
-                
+
                 result = await runner.run_conversation(
-                    investor_profile_name=investor_profile,
+                    investor_profile_name=profile_name,
+                    investor_profile=investor_profile,
                     agent_personality=agent_personality,
                     allow_hallucination=allow_hallucination,
                     max_turns=DEFAULT_MAX_TURNS,
                 )
-                
+
                 all_results.append(result)
     
     # Save results
