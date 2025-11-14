@@ -409,7 +409,7 @@ class ToolAnalyzer:
 
         messages = [
             {"role": "system", "content": prompt},
-            {"role": "user", "content": f"Research task: Analyze the functional requirements of this user query to identify missing tools needed by the investment agent system: {user_utterance}"}
+            {"role": "user", "content": "Analyze what tools or data sources would help answer the user's investment planning question based on the system prompt context."}
         ]
         
         try:
@@ -420,6 +420,12 @@ class ToolAnalyzer:
                 response_format={"type": "json_object"}
             )
         except Exception as e:
+            error_str = str(e)
+            # Don't crash on Azure content filter blocks - just skip tool discovery
+            if any(keyword in error_str.lower() for keyword in ["content_filter", "jailbreak", "responsibleai"]):
+                logger.warning(f"Content filter blocked tool discovery (skipping): {error_str[:200]}")
+                # Return a generic "unknown_tool" to avoid breaking the flow
+                return HypotheticalTool(tool_name="unknown_tool", description="Tool discovery blocked by content filter"), False
             logger.error(f"Tool analyzer LLM call failed: {e}")
             raise
         
