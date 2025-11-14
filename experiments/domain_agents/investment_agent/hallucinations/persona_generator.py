@@ -6,7 +6,6 @@ Supports both simple random generation and LLM-based generation.
 """
 
 import random
-import re
 import json
 import os
 from pathlib import Path
@@ -223,7 +222,7 @@ def test_generation():
 
 def test_llm_generation():
     """Test LLM-based persona generation."""
-    # Load environment variables
+    # Load environment variables from project root
     env_path = Path(__file__).parent.parent.parent.parent.parent / ".env"
     load_dotenv(env_path)
 

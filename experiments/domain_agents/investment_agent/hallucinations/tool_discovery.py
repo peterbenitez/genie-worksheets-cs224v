@@ -406,10 +406,10 @@ class ToolAnalyzer:
             Exception: If LLM API call fails or response parsing fails
         """
         prompt = self._build_prompt(user_utterance, registry)
-        
+
         messages = [
             {"role": "system", "content": prompt},
-            {"role": "user", "content": f"Analyze this query: {user_utterance}"}
+            {"role": "user", "content": f"Research task: Analyze the functional requirements of this user query to identify missing tools needed by the investment agent system: {user_utterance}"}
         ]
         
         try:
