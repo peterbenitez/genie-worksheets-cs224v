@@ -121,8 +121,10 @@ class AgentFactory:
             Configured Agent instance
         """
         # Update config for hallucination mode
-        config.allow_hallucination = allow_hallucination
-        
+        # Note: semantic_parser.prompt reads 'refusal' not 'allow_hallucination'
+        # refusal=False means hallucination mode, refusal=True means refusal mode
+        config.refusal = not allow_hallucination
+
         # Build agent
         agent = agent_builder.build(config)
         
