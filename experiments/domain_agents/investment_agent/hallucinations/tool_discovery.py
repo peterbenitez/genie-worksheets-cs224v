@@ -520,12 +520,23 @@ class ToolRegistry:
             tool_spec: The hypothetical tool specification
             context: Context dict with user_utterance, timestamp, etc.
         """
+        # Add semantic_mapping and example_usage to context if they exist (from new tool creation)
+        if hasattr(tool_spec, '_query_mapping'):
+            context['semantic_mapping'] = tool_spec._query_mapping.get('semantic_mapping', '')
+            context['example_usage'] = tool_spec._query_mapping.get('example_usage', '')
+            delattr(tool_spec, '_query_mapping')  # Remove temporary attribute
+        
         if tool_spec.tool_name in self.missing_tools:
+            existing_tool = self.missing_tools[tool_spec.tool_name]
+            
+            # Detect if this is an update by checking if version increased
+            is_update = tool_spec.version > existing_tool.version
+            
             if is_update:
                 # Replace with updated version but preserve frequency and contexts
-                existing_freq = self.missing_tools[tool_spec.tool_name].frequency
-                existing_contexts = self.missing_tools[tool_spec.tool_name].conversation_contexts
-                existing_first_seen = self.missing_tools[tool_spec.tool_name].first_seen
+                existing_freq = existing_tool.frequency
+                existing_contexts = existing_tool.conversation_contexts
+                existing_first_seen = existing_tool.first_seen
                 
                 # Update the tool
                 self.missing_tools[tool_spec.tool_name] = tool_spec
@@ -1102,54 +1113,111 @@ IMPORTANT:
         self,
         parsed: dict,
         registry: ToolRegistry
-    ) -> Tuple[HypotheticalTool, bool, bool]:
-        """Process the LLM's response and return tool spec with flags"""
+    ) -> 'HypotheticalIssue':
+        """Process the LLM's response and return HypotheticalIssue"""
         
-        if parsed["action"] == "reuse_existing":
-            # Find and return existing missing tool
-            tool_name = parsed["tool_name"]
+        # Default to missing_tool classification for backward compatibility with your prompt format
+        classification = parsed.get("classification", "missing_tool")
+        
+        if classification == "missing_tool":
+            action = parsed.get("action", "create_new")
             
-            if tool_name not in registry.missing_tools:
-                raise ValueError(
-                    f"LLM suggested reusing '{tool_name}' but it doesn't exist in missing_tools"
+            if action == "reuse_existing":
+                # Find and return existing missing tool
+                tool_name = parsed["tool_name"]
+                
+                if tool_name not in registry.missing_tools:
+                    raise ValueError(
+                        f"LLM suggested reusing '{tool_name}' but it doesn't exist in missing_tools"
+                    )
+                
+                existing_tool = registry.missing_tools[tool_name]
+                logger.info(f"Reusing existing missing tool: {tool_name}")
+                
+                return HypotheticalIssue(
+                    issue_type="missing_tool",
+                    tool_spec=existing_tool,
+                    user_facing_message=f"I would need the {tool_name} capability to answer this.",
+                    technical_explanation=parsed.get("rationale", "")
                 )
             
-            existing_tool = registry.missing_tools[tool_name]
-            logger.info(f"Reusing existing missing tool: {tool_name}")
-            return existing_tool, False, False  # Not new, not updated
-        
-        elif parsed["action"] == "update_existing":
-            # Update an existing missing tool with enhanced parameters
-            tool_name = parsed["tool_name"]
-            
-            if tool_name not in registry.missing_tools:
-                raise ValueError(
-                    f"LLM suggested updating '{tool_name}' but it doesn't exist in missing_tools"
+            elif action == "update_existing":
+                # Update an existing missing tool with enhanced parameters
+                tool_name = parsed["tool_name"]
+                
+                if tool_name not in registry.missing_tools:
+                    raise ValueError(
+                        f"LLM suggested updating '{tool_name}' but it doesn't exist in missing_tools"
+                    )
+                
+                existing_tool = registry.missing_tools[tool_name]
+                
+                # Use LLM to intelligently merge parameters
+                updated_tool = self._merge_tool_parameters(
+                    existing_tool=existing_tool,
+                    update_request=parsed,
+                    registry=registry
+                )
+                
+                logger.info(f"Updated existing missing tool: {tool_name} (v{updated_tool.version})")
+                
+                return HypotheticalIssue(
+                    issue_type="missing_tool",
+                    tool_spec=updated_tool,
+                    user_facing_message=f"I would need the {tool_name} capability (updated to v{updated_tool.version}) to answer this.",
+                    technical_explanation=parsed.get("rationale", "")
                 )
             
-            existing_tool = registry.missing_tools[tool_name]
-            
-            # Use LLM to intelligently merge parameters
-            updated_tool = self._merge_tool_parameters(
-                existing_tool=existing_tool,
-                update_request=parsed,
-                registry=registry
-            )
-            
-            logger.info(f"Updated existing missing tool: {tool_name} (v{updated_tool.version})")
-            return updated_tool, False, True  # Not new, but is updated
+            elif action == "create_new":
+                # Create new HypotheticalTool
+                new_tool = HypotheticalTool(
+                    tool_name=parsed["tool_name"],
+                    description=parsed["description"],
+                    parameters=[ToolParameter(**p) for p in parsed["parameters"]],
+                    return_type=parsed["return_type"],
+                    category=parsed["category"]
+                )
+                
+                # Store semantic_mapping and example_usage for THIS query (to be added to context later)
+                new_tool._query_mapping = {
+                    "semantic_mapping": parsed.get("semantic_mapping_for_this_query", ""),
+                    "example_usage": parsed.get("example_usage_for_this_query", "")
+                }
+                
+                logger.info(f"Creating new missing tool: {new_tool.tool_name}")
+                
+                return HypotheticalIssue(
+                    issue_type="missing_tool",
+                    tool_spec=new_tool,
+                    user_facing_message=f"I would need the {new_tool.tool_name} capability to answer this.",
+                    technical_explanation=parsed.get("rationale", "")
+                )
         
-        elif parsed["action"] == "create_new":
-            # Create new HypotheticalTool
-            new_tool = HypotheticalTool(
-                tool_name=parsed["tool_name"],
-                description=parsed["description"],
-                parameters=[ToolParameter(**p) for p in parsed["parameters"]],
-                return_type=parsed["return_type"],
-                category=parsed["category"]
+        elif classification == "out_of_scope":
+            category = parsed.get("category", "general_out_of_scope")
+            explanation = parsed.get("explanation", "This query is outside my capabilities.")
+            user_message = parsed.get("user_message", "I cannot help with this request.")
+            
+            logger.info(f"Query classified as out of scope: {category}")
+            
+            return HypotheticalIssue(
+                issue_type="out_of_scope",
+                scope_explanation=category,
+                user_facing_message=user_message,
+                technical_explanation=explanation
             )
-            logger.info(f"Creating new missing tool: {new_tool.tool_name}")
-            return new_tool, True, False  # Is new, not updated
+        
+        elif classification == "ambiguous":
+            clarification = parsed.get("clarification_needed", "The query is unclear.")
+            user_message = parsed.get("user_message", "Could you please clarify your question?")
+            
+            logger.info(f"Query classified as ambiguous: {clarification}")
+            
+            return HypotheticalIssue(
+                issue_type="ambiguous",
+                user_facing_message=user_message,
+                technical_explanation=clarification
+            )
         
         else:
             raise ValueError(f"Unknown classification in LLM response: {classification}")
