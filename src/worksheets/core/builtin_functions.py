@@ -16,18 +16,21 @@ _current_runtime: Optional['GenieRuntime'] = None  # type: ignore
 
 # Tool discovery integration (optional - only loaded if available)
 _tool_discovery_available = False
+_data_availability_available = False
 try:
     import sys
     from pathlib import Path
-    
+
     # Add hallucinations directory to path if not already there
     hallucinations_path = Path(__file__).parent.parent.parent.parent / "experiments/domain_agents/investment_agent/hallucinations"
     if hallucinations_path.exists() and str(hallucinations_path) not in sys.path:
         sys.path.insert(0, str(hallucinations_path))
-    
-    from tool_discovery import ToolRegistry, discover_missing_tool
+
+    from tool_discovery import ToolRegistry, discover_missing_tool, discover_missing_capability
+    from data_availability import DataAvailabilityChecker
     _tool_discovery_available = True
-    logger.info("Tool discovery system available")
+    _data_availability_available = True
+    logger.info("Tool discovery system with data availability checking available")
 except ImportError:
     logger.debug("Tool discovery system not available (module not found)")
 except Exception as e:
@@ -84,80 +87,96 @@ def generate_clarification(worksheet: GenieWorksheet, field: str) -> str:
 def no_response(message: str) -> ReportAgentAct:
     """
     Create a hallucinated response when agent lacks proper tools.
-    
-    Now with synchronous tool discovery!
-    
+
+    Hybrid approach: Data availability checking + AI-powered capability gap analysis
+
     When the agent can't answer with existing tools, this function:
-    1. Captures the user's query
-    2. Uses AI to determine what missing tool would solve it
-    3. Records the missing tool specification with frequency tracking
-    4. Persists discoveries to disk for analysis
-    
+    Phase 1: Check if it's a data constraint issue (temporal, missing columns, etc.)
+    Phase 2: Use AI to classify: missing tool, out of scope, or ambiguous
+    Phase 3: Record the appropriate issue type and persist to disk
+
     Args:
         message (str): The hallucinated response from semantic parser
-        
+
     Returns:
         ReportAgentAct: The report action with is_no_response=True flag
     """
     # ════════════════════════════════════════════════════
-    # TOOL DISCOVERY INTEGRATION
+    # HYBRID TOOL DISCOVERY INTEGRATION
     # ════════════════════════════════════════════════════
-    
+
     if _tool_discovery_available and _current_runtime is not None:
         try:
             # Get current user utterance from dialogue history
             user_utterance = _get_current_user_utterance()
-            
+
             if user_utterance:
                 # Get or initialize tool registry
                 if not hasattr(_current_runtime, 'tool_registry'):
                     _current_runtime.tool_registry = ToolRegistry.load_or_create()
                     logger.info("Initialized tool registry for agent")
-                
-                # Synchronous tool discovery
-                tool_spec, is_new, is_update = discover_missing_tool(
+
+                # PHASE 1: Check data availability (NEW)
+                data_result = None
+                if _data_availability_available:
+                    checker = DataAvailabilityChecker(_current_runtime.tool_registry, _current_runtime)
+                    query_context = _get_query_context()
+                    data_result = checker.check_availability(user_utterance, query_context)
+
+                    if data_result.issue_type != "no_issue":
+                        logger.info(f"Data constraint detected: {data_result.issue_type}")
+
+                # PHASE 2: Capability gap analysis (ENHANCED)
+                issue = discover_missing_capability(
                     user_utterance=user_utterance,
-                    registry=_current_runtime.tool_registry
+                    registry=_current_runtime.tool_registry,
+                    data_availability_result=data_result
                 )
-                
+
                 # Get additional context about the conversation
                 turn_number = getattr(_current_runtime, 'current_turn_number', None)
                 allow_hallucination = getattr(_current_runtime.config, 'allow_hallucination', None)
                 investor_profile_name = getattr(_current_runtime, 'investor_profile_name', None)
-                user_risk_profile = getattr(_current_runtime, 'user_risk_profile', None)  
-                
-                # Record the missing tool (increments frequency if existing, or updates version if modified)
-                _current_runtime.tool_registry.record_missing_tool(
-                    tool_spec=tool_spec,
-                    context={
-                        'user_utterance': user_utterance,
-                        'timestamp': datetime.now().isoformat(),
-                        'hallucinated_response': message,
-                        'is_new_discovery': is_new,
-                        'is_update': is_update,
-                        'turn_number': turn_number,
-                        'allow_hallucination': allow_hallucination,
-                        'investor_profile': investor_profile_name,
-                        'user_risk_profile': user_risk_profile,
-                    },
-                    is_update=is_update
-                )
-                
+                user_risk_profile = getattr(_current_runtime, 'user_risk_profile', None)
+
+                context = {
+                    'user_utterance': user_utterance,
+                    'timestamp': datetime.now().isoformat(),
+                    'hallucinated_response': message,
+                    'turn_number': turn_number,
+                    'allow_hallucination': allow_hallucination,
+                    'investor_profile': investor_profile_name,
+                    'user_risk_profile': user_risk_profile,
+                }
+
+                # PHASE 3: Record based on issue type
+                if issue.issue_type == "missing_tool" and issue.tool_spec:
+                    _current_runtime.tool_registry.record_missing_tool(issue.tool_spec, context)
+                    logger.info(
+                        f"Missing Tool: '{issue.tool_spec.tool_name}' (freq={issue.tool_spec.frequency})"
+                    )
+                elif issue.issue_type == "missing_data":
+                    _current_runtime.tool_registry.record_data_constraint(issue, context)
+                    logger.info(f"Data Constraint: {issue.data_constraint}")
+                    # Use the specific data constraint explanation
+                    if issue.user_facing_message:
+                        message = issue.user_facing_message
+                elif issue.issue_type == "out_of_scope":
+                    _current_runtime.tool_registry.record_out_of_scope(issue, context)
+                    logger.info(f"Out of Scope: {issue.scope_explanation}")
+                    # Use the specific out-of-scope message
+                    if issue.user_facing_message:
+                        message = issue.user_facing_message
+                elif issue.issue_type == "ambiguous":
+                    # Don't record ambiguous queries, just log them
+                    logger.info(f"Ambiguous query: {issue.technical_explanation}")
+                    # Use the clarification message
+                    if issue.user_facing_message:
+                        message = issue.user_facing_message
+
                 # Save to disk after each discovery
                 _current_runtime.tool_registry.save_to_disk()
-                
-                # Log with appropriate status
-                if is_new:
-                    status = 'Created'
-                elif is_update:
-                    status = f'Updated to v{tool_spec.version}'
-                else:
-                    status = 'Reused'
-                
-                logger.info(
-                    f"Tool Discovery: {status} '{tool_spec.tool_name}' (freq={tool_spec.frequency})"
-                )
-            
+
         except Exception as e:
             # Tool discovery failed - raise error as requested
             logger.error(f"Tool discovery failed: {e}")
@@ -184,13 +203,13 @@ def no_response(message: str) -> ReportAgentAct:
 def _get_current_user_utterance() -> Optional[str]:
     """
     Helper to extract current user utterance from runtime.
-    
+
     Returns:
         The user's current utterance, or None if not available
     """
     if _current_runtime is None:
         return None
-    
+
     # Try to get from agent's dialogue history
     if hasattr(_current_runtime, 'agent') and hasattr(_current_runtime.agent, 'dlg_history'):
         dlg_history = _current_runtime.agent.dlg_history
@@ -199,8 +218,36 @@ def _get_current_user_utterance() -> Optional[str]:
             last_turn = dlg_history[-1]
             if hasattr(last_turn, 'user_utterance'):
                 return last_turn.user_utterance
-    
+
     return None
+
+
+def _get_query_context() -> dict:
+    """
+    Helper to extract query context from runtime for data availability checking.
+
+    Returns:
+        Dictionary with context information (attempted queries, tables accessed, etc.)
+    """
+    context = {}
+
+    if _current_runtime is None:
+        return context
+
+    # Try to get attempted SQL queries or API calls from the last turn
+    if hasattr(_current_runtime, 'agent') and hasattr(_current_runtime.agent, 'dlg_history'):
+        dlg_history = _current_runtime.agent.dlg_history
+        if dlg_history and len(dlg_history) > 0:
+            last_turn = dlg_history[-1]
+
+            # Extract any attempted queries or operations
+            if hasattr(last_turn, 'intermediate_output'):
+                context['intermediate_output'] = last_turn.intermediate_output
+
+            if hasattr(last_turn, 'attempted_queries'):
+                context['attempted_queries'] = last_turn.attempted_queries
+
+    return context
 
 def chitchat() -> ReportAgentAct:
     """Create a chitchat action.
