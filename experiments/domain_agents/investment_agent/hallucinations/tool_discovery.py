@@ -70,9 +70,10 @@ class HypotheticalTool:
     first_seen: str = ""
     last_seen: str = ""
     conversation_contexts: List[Dict] = field(default_factory=list)  # Each context has semantic_mapping and example_usage
-
-    # Usage semantics (NEW) - explains when/how this tool can be used
-    usage_semantics: Dict = field(default_factory=dict)  # {when_to_use, data_requirements, constraints, example_queries}
+    
+    # Version history tracking
+    version: int = 1
+    version_history: List[Dict] = field(default_factory=list)  # List of version change entries
 
 
 @dataclass
@@ -122,6 +123,9 @@ class ToolRegistry:
 
     # NEW: Out of scope queries (neither tool nor data issue)
     out_of_scope_queries: Dict = field(default_factory=dict)  # {category: {frequency, examples}}
+    
+    # NEW: Ambiguous queries (need clarification)
+    ambiguous_requests: Dict = field(default_factory=dict)  # {category: {frequency, examples}}
 
     # Metadata
     registry_version: str = "2.0"  # Bumped for new schema
@@ -707,7 +711,10 @@ class ToolRegistry:
             'last_updated': self.last_updated,
             'existing_apis': self.existing_apis,
             'existing_kb_tables': self.existing_kb_tables,
-            'missing_tools_by_action': grouped_tools
+            'missing_tools_by_action': grouped_tools,
+            'data_constraints': self.data_constraints,
+            'out_of_scope_queries': self.out_of_scope_queries,
+            'ambiguous_requests': self.ambiguous_requests
         }
     
     def _group_tools_by_action(self) -> dict:
@@ -745,14 +752,6 @@ class ToolRegistry:
         
         # If no known action, put in misc
         return 'misc'
-            'missing_tools': {
-                name: self._tool_to_dict(tool)
-                for name, tool in self.missing_tools.items()
-            },
-            'data_constraints': self.data_constraints,
-            'out_of_scope_queries': self.out_of_scope_queries,
-            'ambiguous_requests': self.ambiguous_requests
-        }
     
     @staticmethod
     def _tool_to_dict(tool: HypotheticalTool) -> dict:
@@ -974,12 +973,6 @@ MISSING TOOLS (discovered but not implemented):
 {missing_text}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-USER QUERY:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-{missing_text}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TASK: The agent cannot answer this query with available tools.
 USER QUERY: "{user_utterance}"
 
@@ -1084,33 +1077,6 @@ Return valid JSON only."""
     
     @staticmethod
     def _format_existing_apis(apis: Dict[str, Dict]) -> str:
-        """Format existing APIs for prompt (STUB)"""
-        if not apis:
-            return "None"
-        
-        lines = []
-        for name, info in apis.items():
-            lines.append(f"- {info['signature']}")
-            lines.append(f"  Description: {info['description']}")
-        
-        return "\n".join(lines)
-    
-    @staticmethod
-    def _format_db_schema(tables: Dict[str, List[str]]) -> str:
-        """Format database schema for prompt (STUB)"""
-        if not tables:
-            return "None"
-        
-        lines = []
-        for table_name, columns in tables.items():
-            lines.append(f"- {table_name}: {', '.join(columns[:10])}")  # Show first 10 columns
-            if len(columns) > 10:
-                lines.append(f"  ... and {len(columns) - 10} more columns")
-        
-        return "\n".join(lines)
-    
-    @staticmethod
-    def _format_existing_apis(apis: Dict[str, Dict]) -> str:
         """Format existing APIs with FULL semantic context for LLM analysis"""
         if not apis:
             return "None"
@@ -1210,19 +1176,6 @@ Return valid JSON only."""
         return "\n".join(lines)
     
     @staticmethod
-    def _format_missing_tools(missing_tools: Dict[str, HypotheticalTool]) -> str:
-        """Format missing tools for prompt"""
-        if not missing_tools:
-            return "None discovered yet"
-        
-        lines = []
-        for tool_name, tool in missing_tools.items():
-            param_names = ", ".join([f"{param_dict.name}: {param_dict.type}" for param_dict in tool.parameters])
-            lines.append(f"- {tool_name}({param_names}) -> {tool.return_type}")
-            lines.append(f"  Description: {tool.description}")
-            lines.append(f"  Used {tool.frequency} times")
-        
-        return "\n".join(lines)
     def _format_missing_tools(missing_tools: Dict[str, HypotheticalTool]) -> str:
         """Format missing tools for prompt, grouped by action type"""
         if not missing_tools:
@@ -1396,31 +1349,62 @@ Return JSON:
                     user_facing_message=f"I would need the {tool_name} capability to answer this.",
                     technical_explanation=parsed.get("rationale", "")
                 )
+            
+            elif action == "update_existing":
+                # Update an existing missing tool with enhanced parameters
+                tool_name = parsed["tool_name"]
+                
+                if tool_name not in registry.missing_tools:
+                    raise ValueError(
+                        f"LLM suggested updating '{tool_name}' but it doesn't exist in missing_tools"
+                    )
+                
+                existing_tool = registry.missing_tools[tool_name]
+                reasoning = parsed.get("reasoning", "No reasoning provided")
+                logger.debug(f"Update reasoning: {reasoning}")
+                
+                # Use LLM to intelligently merge parameters
+                updated_tool = self._merge_tool_parameters(
+                    existing_tool=existing_tool,
+                    update_request=parsed,
+                    registry=registry
+                )
+                
+                logger.info(f"Updated existing missing tool: {tool_name} (v{updated_tool.version})")
+                
+                return HypotheticalIssue(
+                    issue_type="missing_tool",
+                    tool_spec=updated_tool,
+                    user_facing_message=f"I would need the {tool_name} capability (updated to v{updated_tool.version}) to answer this.",
+                    technical_explanation=parsed.get("reasoning", "")
+                )
 
             elif action == "create_new":
                 # Create new HypotheticalTool
-                usage_semantics = parsed.get("usage_semantics", {
-                    "when_to_use": "",
-                    "data_requirements": "",
-                    "constraints": "",
-                    "example_queries": []
-                })
-
+                reasoning = parsed.get("reasoning", "No reasoning provided")
+                logger.debug(f"Create new reasoning: {reasoning}")
+                
                 new_tool = HypotheticalTool(
                     tool_name=parsed["tool_name"],
                     description=parsed["description"],
                     parameters=[ToolParameter(**p) for p in parsed["parameters"]],
                     return_type=parsed["return_type"],
-                    category=parsed["category"],
-                    usage_semantics=usage_semantics
+                    category=parsed["category"]
                 )
+                
+                # Store semantic_mapping and example_usage for THIS query (to be added to context later)
+                new_tool._query_mapping = {
+                    "semantic_mapping": parsed.get("semantic_mapping_for_this_query", ""),
+                    "example_usage": parsed.get("example_usage_for_this_query", "")
+                }
+                
                 logger.info(f"Creating new missing tool: {new_tool.tool_name}")
 
                 return HypotheticalIssue(
                     issue_type="missing_tool",
                     tool_spec=new_tool,
                     user_facing_message=f"I would need the {new_tool.tool_name} capability to answer this.",
-                    technical_explanation=parsed.get("rationale", "")
+                    technical_explanation=parsed.get("reasoning", "")
                 )
 
         elif classification == "out_of_scope":
