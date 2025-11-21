@@ -77,6 +77,31 @@ class HypotheticalTool:
 
 
 @dataclass
+class HypotheticalIssue:
+    """
+    Represents any capability gap - could be missing tool, missing data, out of scope, etc.
+    This is more general than HypotheticalTool.
+    """
+    issue_type: str  # "missing_tool", "missing_data", "out_of_scope", "ambiguous"
+
+    # For missing_tool
+    tool_spec: Optional[HypotheticalTool] = None
+
+    # For missing_data
+    data_constraint: Optional[str] = None  # e.g., "temporal_constraint", "missing_column"
+    affected_entity: Optional[str] = None  # table/column name
+
+    # For out_of_scope
+    scope_explanation: Optional[str] = None
+
+    # Common fields
+    user_facing_message: str = ""
+    technical_explanation: str = ""
+    frequency: int = 1
+    conversation_contexts: List[Dict] = field(default_factory=list)
+
+
+@dataclass
 class ToolRegistry:
     """
     Tracks existing and missing tools with disk persistence.
@@ -92,6 +117,15 @@ class ToolRegistry:
 
     # What's missing (discovered through hallucinations)
     missing_tools: Dict[str, HypotheticalTool] = field(default_factory=dict)
+    
+    # Data constraints (not tool gaps, but data gaps)
+    data_constraints: Dict = field(default_factory=dict)  # {temporal_constraints: {...}, missing_columns: {...}}
+    
+    # Out of scope queries (neither tool nor data issue)
+    out_of_scope_queries: Dict = field(default_factory=dict)  # {category: {frequency, examples}}
+    
+    # Ambiguous requests that need clarification
+    ambiguous_requests: Dict = field(default_factory=dict)  # {request_pattern: {frequency, examples}}
     
     # Metadata
     registry_version: str = "2.0"  # Bumped for new schema
@@ -443,11 +477,11 @@ class ToolRegistry:
                     ]
                 },
                 "common_use_cases": [
-                    "Query: 'Find aggressive funds' → WHERE ratings_morningstarRisk = 'high' or 'aggressive'",
-                    "Query: 'Best performing funds in 2023' → ORDER BY returns_calendar_2023 DESC LIMIT 10",
-                    "Query: 'Low expense ratio funds' → WHERE expenseRatio < 0.5",
-                    "Query: 'Funds with high 5-year returns' → WHERE returns_fiveYear > 10.0",
-                    "Query: 'Compare FXAIX vs VTSAX' → WHERE symbol IN ('FXAIX', 'VTSAX')"
+                    "Query: 'Find aggressive funds' -> WHERE ratings_morningstarRisk = 'high' or 'aggressive'",
+                    "Query: 'Best performing funds in 2023' -> ORDER BY returns_calendar_2023 DESC LIMIT 10",
+                    "Query: 'Low expense ratio funds' -> WHERE expenseRatio < 0.5",
+                    "Query: 'Funds with high 5-year returns' -> WHERE returns_fiveYear > 10.0",
+                    "Query: 'Compare FXAIX vs VTSAX' -> WHERE symbol IN ('FXAIX', 'VTSAX')"
                 ],
                 "data_quality_notes": [
                     "Returns are percentages (e.g., 10.5 means 10.5%)",
@@ -495,10 +529,10 @@ class ToolRegistry:
                     ]
                 },
                 "common_use_cases": [
-                    "Query: 'High-rated bonds' → WHERE \"Moody's Rating\" IN ('Aaa', 'Aa1', 'Aa2')",
-                    "Query: 'Bonds with yield > 5%' → WHERE \"Expected Yield\" > 5.0",
-                    "Query: 'Short-term bonds' → WHERE \"Maturity Date\" < '2026-01-01'",
-                    "Query: 'Investment grade bonds' → WHERE \"S&P Rating\" IN ('AAA', 'AA', 'A', 'BBB')"
+                    "Query: 'High-rated bonds' -> WHERE \"Moody's Rating\" IN ('Aaa', 'Aa1', 'Aa2')",
+                    "Query: 'Bonds with yield > 5%' -> WHERE \"Expected Yield\" > 5.0",
+                    "Query: 'Short-term bonds' -> WHERE \"Maturity Date\" < '2026-01-01'",
+                    "Query: 'Investment grade bonds' -> WHERE \"S&P Rating\" IN ('AAA', 'AA', 'A', 'BBB')"
                 ],
                 "data_quality_notes": [
                     "Expected Yield is annualized percentage",
@@ -521,6 +555,9 @@ class ToolRegistry:
             context: Context dict with user_utterance, timestamp, etc.
         """
         if tool_spec.tool_name in self.missing_tools:
+            # Determine if this is an update by checking if version > 1
+            is_update = tool_spec.version > 1
+            
             if is_update:
                 # Replace with updated version but preserve frequency and contexts
                 existing_freq = self.missing_tools[tool_spec.tool_name].frequency
@@ -597,6 +634,82 @@ class ToolRegistry:
             logger.error(f"Failed to save tool registry: {e}")
             raise
     
+    def record_data_constraint(self, issue: HypotheticalIssue, context: Dict):
+        """
+        Record when a query fails due to data constraints (not a missing tool).
+        
+        Examples:
+        - Temporal constraints (asking for data from 1990 when DB only has 2015+)
+        - Missing columns (asking for sector when table doesn't have sector column)
+        - Missing tables
+        
+        Args:
+            issue: HypotheticalIssue with issue_type="missing_data"
+            context: Context dict with user_utterance, timestamp, etc.
+        """
+        constraint_type = issue.data_constraint  # e.g., "temporal_constraint"
+        entity = issue.affected_entity  # e.g., "fidelity_funds.returns_calendar_1990"
+        
+        # Initialize constraint type if not exists
+        if constraint_type not in self.data_constraints:
+            self.data_constraints[constraint_type] = {}
+        
+        # Track this specific entity constraint
+        if entity not in self.data_constraints[constraint_type]:
+            self.data_constraints[constraint_type][entity] = {
+                "frequency": 0,
+                "first_seen": context['timestamp'],
+                "last_seen": context['timestamp'],
+                "user_facing_message": issue.user_facing_message,
+                "technical_explanation": issue.technical_explanation,
+                "conversation_contexts": []
+            }
+        
+        # Update frequency and contexts
+        self.data_constraints[constraint_type][entity]["frequency"] += 1
+        self.data_constraints[constraint_type][entity]["last_seen"] = context['timestamp']
+        self.data_constraints[constraint_type][entity]["conversation_contexts"].append(context)
+        
+        logger.info(
+            f"Data constraint recorded: {constraint_type} -> {entity} "
+            f"(freq={self.data_constraints[constraint_type][entity]['frequency']})"
+        )
+    
+    def record_out_of_scope(self, issue: HypotheticalIssue, context: Dict):
+        """
+        Record when a query is out of scope for the agent.
+        
+        Examples:
+        - Legal/tax advice
+        - Medical recommendations
+        - Requests for illegal activities
+        
+        Args:
+            issue: HypotheticalIssue with issue_type="out_of_scope"
+            context: Context dict with user_utterance, timestamp, etc.
+        """
+        category = issue.scope_explanation if issue.scope_explanation else "general_out_of_scope"
+        
+        # Initialize category if not exists
+        if category not in self.out_of_scope_queries:
+            self.out_of_scope_queries[category] = {
+                "frequency": 0,
+                "first_seen": context['timestamp'],
+                "last_seen": context['timestamp'],
+                "user_facing_message": issue.user_facing_message,
+                "conversation_contexts": []
+            }
+        
+        # Update frequency and contexts
+        self.out_of_scope_queries[category]["frequency"] += 1
+        self.out_of_scope_queries[category]["last_seen"] = context['timestamp']
+        self.out_of_scope_queries[category]["conversation_contexts"].append(context)
+        
+        logger.info(
+            f"Out-of-scope query recorded: {category} "
+            f"(freq={self.out_of_scope_queries[category]['frequency']})"
+        )
+    
     @staticmethod
     def _get_default_registry_path() -> Path:
         """Get default path to registry file"""
@@ -612,10 +725,10 @@ class ToolRegistry:
             'last_updated': self.last_updated,
             'existing_apis': self.existing_apis,
             'existing_kb_tables': self.existing_kb_tables,
-            'missing_tools': {
-                name: self._tool_to_dict(tool) 
-                for name, tool in self.missing_tools.items()
-            }
+            'missing_tools_by_action': grouped_tools,
+            'data_constraints': self.data_constraints,
+            'out_of_scope_queries': self.out_of_scope_queries,
+            'ambiguous_requests': self.ambiguous_requests
         }
     
     @staticmethod
@@ -638,15 +751,85 @@ class ToolRegistry:
         registry.existing_apis = data.get('existing_apis', {})
         registry.existing_kb_tables = data.get('existing_kb_tables', {})
         
-        # Reconstruct HypotheticalTool objects
-        for name, tool_data in data.get('missing_tools', {}).items():
-            # Convert parameter dicts to ToolParameter objects
-            tool_data['parameters'] = [
-                ToolParameter(**p) for p in tool_data['parameters']
-            ]
-            registry.missing_tools[name] = HypotheticalTool(**tool_data)
+        # Load grouped tools (new format) or flat tools (old format for backward compatibility)
+        if 'missing_tools_by_action' in data:
+            # New grouped format
+            for action_type, tools_dict in data['missing_tools_by_action'].items():
+                for name, tool_data in tools_dict.items():
+                    # Convert parameter dicts to ToolParameter objects
+                    tool_data['parameters'] = [
+                        ToolParameter(**p) for p in tool_data['parameters']
+                    ]
+                    registry.missing_tools[name] = HypotheticalTool(**tool_data)
+        elif 'missing_tools' in data:
+            # Old flat format (backward compatibility)
+            for name, tool_data in data['missing_tools'].items():
+                tool_data['parameters'] = [
+                    ToolParameter(**p) for p in tool_data['parameters']
+                ]
+                registry.missing_tools[name] = HypotheticalTool(**tool_data)
+        
+        # Load new fields (with defaults for backward compatibility)
+        registry.data_constraints = data.get('data_constraints', {})
+        registry.out_of_scope_queries = data.get('out_of_scope_queries', {})
+        registry.ambiguous_requests = data.get('ambiguous_requests', {})
         
         return registry
+    
+    def _group_tools_by_action(self) -> Dict[str, Dict]:
+        """
+        Group missing tools by their primary action type for better organization.
+        
+        Returns:
+            Dict mapping action types to tool dictionaries
+            Example: {"compare": {"compare_etfs": {...}}, "calculate": {...}}
+        """
+        grouped = {}
+        
+        for name, tool in self.missing_tools.items():
+            action = self._extract_action(tool.tool_name, tool.description)
+            
+            if action not in grouped:
+                grouped[action] = {}
+            
+            grouped[action][name] = self._tool_to_dict(tool)
+        
+        return grouped
+    
+    @staticmethod
+    def _extract_action(tool_name: str, description: str) -> str:
+        """
+        Extract the primary action type from tool name/description.
+        
+        Args:
+            tool_name: Name of the tool (e.g., "compare_etfs_on_metrics")
+            description: Tool description
+            
+        Returns:
+            Action type string (e.g., "compare", "calculate", "explain", etc.)
+        """
+        # Common action verbs to look for (domain-agnostic)
+        action_verbs = [
+            "compare", "calculate", "compute", "explain", "justify",
+            "evaluate", "analyze", "retrieve", "fetch", "get",
+            "list", "filter", "search", "find", "rank",
+            "project", "predict", "forecast", "estimate"
+        ]
+        
+        # Check tool name first (most reliable)
+        tool_name_lower = tool_name.lower()
+        for verb in action_verbs:
+            if tool_name_lower.startswith(verb):
+                return verb
+        
+        # Check description as fallback
+        description_lower = description.lower()
+        for verb in action_verbs:
+            if verb in description_lower:
+                return verb
+        
+        # Default to misc if no clear action found
+        return "misc"
     
     def get_priority_tools(self, min_frequency: int = 2) -> List[HypotheticalTool]:
         """
@@ -819,7 +1002,7 @@ class ToolAnalyzer:
         # Format missing tools
         missing_text = self._format_missing_tools(registry.missing_tools)
         
-        prompt = f"""You are analyzing a conversational AI investment agent's tool gaps.
+        prompt = f"""You are analyzing a conversational AI agent's capability gaps.
 
 AVAILABLE TOOLS:
 {apis_text}
@@ -835,12 +1018,33 @@ USER QUERY:
 "{user_utterance}"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TASK:
+TOOL GRANULARITY PRINCIPLE (DOMAIN-AGNOSTIC):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-The agent CANNOT answer the user's query with the CURRENTLY AVAILABLE TOOLS.
+A tool = ONE specific capability (like a function):
+1. ONE primary action (compute, explain, compare, justify, retrieve, list, evaluate, transform)
+2. ONE return type (number, text explanation, comparison, data list, judgment)
+3. Parameterizable for variations of the SAME task
 
-Determine which missing tool would solve this:
+Extract functional signature from query:
+- PRIMARY ACTION: What operation?
+- RETURN TYPE: What output?
+- SUBJECT: What entity/concept?
+- PARAMETERIZABLE: What varies? (time, amounts, entities, filters)
+
+Tools are SUBSTANTIALLY SIMILAR if ALL match:
+- SAME primary action
+- SAME return type
+- SAME subject
+- DIFFERENT only in parameter values
+
+Otherwise: CREATE NEW TOOL
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DECISION FRAMEWORK:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The agent CANNOT answer with current tools. Determine what's needed:
 
 1. If one of the PREVIOUSLY DISCOVERED MISSING TOOLS would work AS-IS, return:
 {{
@@ -1102,8 +1306,28 @@ IMPORTANT:
         self,
         parsed: dict,
         registry: ToolRegistry
-    ) -> Tuple[HypotheticalTool, bool, bool]:
-        """Process the LLM's response and return tool spec with flags"""
+    ) -> HypotheticalIssue:
+        """Process the LLM's response and return HypotheticalIssue"""
+        
+        # Handle out_of_scope classification
+        if parsed.get("action") == "out_of_scope":
+            return HypotheticalIssue(
+                issue_type="out_of_scope",
+                scope_explanation=parsed.get("scope_category", "general_out_of_scope"),
+                user_facing_message=parsed.get("user_message", "This query is outside my capabilities"),
+                technical_explanation=parsed.get("rationale", "Query classified as out of scope")
+            )
+        
+        # Handle ambiguous classification
+        if parsed.get("action") == "ambiguous":
+            return HypotheticalIssue(
+                issue_type="ambiguous",
+                user_facing_message=parsed.get("user_message", "I need more information"),
+                technical_explanation=parsed.get("rationale", "Query is ambiguous")
+            )
+        
+        # Handle tool-related actions (reuse, update, create)
+        tool_spec = None
         
         if parsed["action"] == "reuse_existing":
             # Find and return existing missing tool
@@ -1114,9 +1338,8 @@ IMPORTANT:
                     f"LLM suggested reusing '{tool_name}' but it doesn't exist in missing_tools"
                 )
             
-            existing_tool = registry.missing_tools[tool_name]
+            tool_spec = registry.missing_tools[tool_name]
             logger.info(f"Reusing existing missing tool: {tool_name}")
-            return existing_tool, False, False  # Not new, not updated
         
         elif parsed["action"] == "update_existing":
             # Update an existing missing tool with enhanced parameters
@@ -1130,29 +1353,35 @@ IMPORTANT:
             existing_tool = registry.missing_tools[tool_name]
             
             # Use LLM to intelligently merge parameters
-            updated_tool = self._merge_tool_parameters(
+            tool_spec = self._merge_tool_parameters(
                 existing_tool=existing_tool,
                 update_request=parsed,
                 registry=registry
             )
             
-            logger.info(f"Updated existing missing tool: {tool_name} (v{updated_tool.version})")
-            return updated_tool, False, True  # Not new, but is updated
+            logger.info(f"Updated existing missing tool: {tool_name} (v{tool_spec.version})")
         
         elif parsed["action"] == "create_new":
             # Create new HypotheticalTool
-            new_tool = HypotheticalTool(
+            tool_spec = HypotheticalTool(
                 tool_name=parsed["tool_name"],
                 description=parsed["description"],
                 parameters=[ToolParameter(**p) for p in parsed["parameters"]],
                 return_type=parsed["return_type"],
                 category=parsed["category"]
             )
-            logger.info(f"Creating new missing tool: {new_tool.tool_name}")
-            return new_tool, True, False  # Is new, not updated
+            logger.info(f"Creating new missing tool: {tool_spec.tool_name}")
         
         else:
-            raise ValueError(f"Unknown classification in LLM response: {classification}")
+            raise ValueError(f"Unknown action in LLM response: {parsed.get('action')}")
+        
+        # Wrap tool in HypotheticalIssue
+        return HypotheticalIssue(
+            issue_type="missing_tool",
+            tool_spec=tool_spec,
+            user_facing_message=f"I need the '{tool_spec.tool_name}' capability to answer this",
+            technical_explanation=f"Missing tool: {tool_spec.description}"
+        )
 
 
 def discover_missing_capability(
