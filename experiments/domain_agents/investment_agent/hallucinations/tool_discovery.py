@@ -82,7 +82,7 @@ class HypotheticalTool:
     frequency: int = 0
     first_seen: str = ""
     last_seen: str = ""
-    conversation_contexts: List[Dict] = field(default_factory=list)
+    conversation_contexts: List[Dict] = field(default_factory=list)  # Each context has semantic_mapping and example_usage
     
     # Version history tracking
     version: int = 1
@@ -214,6 +214,12 @@ class ToolRegistry:
             context: Context dict with user_utterance, timestamp, etc.
             is_update: If True, this is an updated version of an existing tool
         """
+        # Add semantic_mapping and example_usage to context if they exist (from new tool creation)
+        if hasattr(tool_spec, '_query_mapping'):
+            context['semantic_mapping'] = tool_spec._query_mapping.get('semantic_mapping', '')
+            context['example_usage'] = tool_spec._query_mapping.get('example_usage', '')
+            delattr(tool_spec, '_query_mapping')  # Remove temporary attribute
+        
         if tool_spec.tool_name in self.missing_tools:
             if is_update:
                 # Replace with updated version but preserve frequency and contexts
@@ -297,17 +303,53 @@ class ToolRegistry:
         return Path(__file__).parent / REGISTRY_FILENAME
     
     def _to_dict(self) -> dict:
-        """Convert to JSON-serializable dict"""
+        """Convert to JSON-serializable dict with tools grouped by action type"""
+        # Group tools by action type
+        grouped_tools = self._group_tools_by_action()
+        
         return {
             'registry_version': self.registry_version,
             'last_updated': self.last_updated,
             'existing_apis': self.existing_apis,
             'existing_kb_tables': self.existing_kb_tables,
-            'missing_tools': {
-                name: self._tool_to_dict(tool) 
-                for name, tool in self.missing_tools.items()
-            }
+            'missing_tools_by_action': grouped_tools
         }
+    
+    def _group_tools_by_action(self) -> dict:
+        """Group tools by their primary action for better readability"""
+        from collections import defaultdict
+        
+        groups = defaultdict(dict)
+        
+        for name, tool in self.missing_tools.items():
+            # Extract action from tool name (first word before underscore)
+            # e.g., "explain_allocation" -> "explain", "calculate_returns" -> "calculate"
+            action = self._extract_action(name)
+            groups[action][name] = self._tool_to_dict(tool)
+        
+        # Sort groups by action name and convert to regular dict
+        return dict(sorted(groups.items()))
+    
+    @staticmethod
+    def _extract_action(tool_name: str) -> str:
+        """Extract primary action from tool name"""
+        # Common action verbs (ordered by priority)
+        actions = [
+            'compare', 'explain', 'calculate', 'compute', 'retrieve', 'get',
+            'evaluate', 'assess', 'justify', 'recommend', 'list', 'find',
+            'analyze', 'identify', 'determine', 'generate', 'create', 'build',
+            'validate', 'check', 'verify', 'transform', 'convert', 'format'
+        ]
+        
+        tool_lower = tool_name.lower()
+        
+        # Check if tool starts with any known action
+        for action in actions:
+            if tool_lower.startswith(action):
+                return action
+        
+        # If no known action, put in misc
+        return 'misc'
     
     @staticmethod
     def _tool_to_dict(tool: HypotheticalTool) -> dict:
@@ -323,20 +365,20 @@ class ToolRegistry:
     
     @classmethod
     def _from_dict(cls, data: dict) -> 'ToolRegistry':
-        """Load from dict"""
+        """Load from dict with grouped format (missing_tools_by_action)"""
         registry = cls()
         registry.registry_version = data.get('registry_version', '1.0')
         registry.last_updated = data.get('last_updated', '')
         registry.existing_apis = data.get('existing_apis', {})
         registry.existing_kb_tables = data.get('existing_kb_tables', {})
         
-        # Reconstruct HypotheticalTool objects
-        for name, tool_data in data.get('missing_tools', {}).items():
-            # Convert parameter dicts to ToolParameter objects
-            tool_data['parameters'] = [
-                ToolParameter(**p) for p in tool_data['parameters']
-            ]
-            registry.missing_tools[name] = HypotheticalTool(**tool_data)
+        # Load tools from grouped format
+        for action_group in data.get('missing_tools_by_action', {}).values():
+            for name, tool_data in action_group.items():
+                tool_data['parameters'] = [
+                    ToolParameter(**p) for p in tool_data['parameters']
+                ]
+                registry.missing_tools[name] = HypotheticalTool(**tool_data)
         
         return registry
     
@@ -509,91 +551,115 @@ class ToolAnalyzer:
         # Format missing tools
         missing_text = self._format_missing_tools(registry.missing_tools)
         
-        prompt = f"""You are analyzing a conversational AI investment agent's tool gaps.
+        prompt = f"""You are analyzing a conversational AI agent's tool gaps.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CURRENTLY AVAILABLE TOOLS (CAN USE):
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-APIs:
+AVAILABLE TOOLS:
 {apis_text}
-
-Database Tables & Columns:
 {db_text}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PREVIOUSLY DISCOVERED MISSING TOOLS (DON'T EXIST YET):
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
+MISSING TOOLS (discovered but not implemented):
 {missing_text}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TASK:
+TASK: The agent cannot answer this query with available tools.
+USER QUERY: "{user_utterance}"
+
+TOOL GRANULARITY PRINCIPLE:
+A tool = ONE specific capability (like a function) that:
+1. Has ONE primary action (compute, explain, compare, justify, retrieve, list, evaluate, transform)
+2. Returns ONE type of output (number, text explanation, comparison, data list, judgment)
+3. Can be parameterized for variations of the SAME task
+
+SIMILARITY MATCHING RULES (CRITICAL):
+When comparing query to existing tools, IGNORE minor wording differences!
+
+THESE ARE THE SAME:
+- "compare X on metrics" = "compare X head-to-head" = "compare X directly"
+- "get data about X" = "retrieve X info" = "fetch X details"
+- "explain why X" = "justify X" = "provide reasoning for X"
+- "key metrics" = "main factors" = "important criteria"
+
+DO NOT create separate tools for:
+- Synonyms in description ("head-to-head" vs "on metrics")
+- Paraphrasing ("data-driven justification" vs "concrete comparison")
+- Different wordings of same request
+
+DECISION FRAMEWORK:
+Step 1: Extract functional signature
+- PRIMARY ACTION: What operation? (compare, explain, calculate, get, etc.)
+- RETURN TYPE: What output format?
+- SUBJECT: What entity?
+- PARAMETERS: What varies?
+
+Step 2: Check EACH existing missing tool
+For EACH tool, ask:
+1. Same PRIMARY ACTION verb? (compare=compare, explain=explain, calculate=calculate)
+2. Same RETURN TYPE structure? (comparison_table=comparison_table, explanation=explanation)
+3. Same SUBJECT entity? (ETFs=ETFs, funds=funds, bonds=bonds)
+4. Same PARAMETERS (ignoring entity names/values)?
+
+IF ALL 4 match -> REUSE existing tool (don't create new!)
+IF 1-3 match but need new optional param -> UPDATE existing
+IF ANY of 1-3 differ -> CREATE new
+
+CONCRETE EXAMPLES:
+Query A: "Compare BOTZ vs AIQ on fees, holdings, performance"
+Query B: "Compare BOTZ vs AIQ head-to-head with numbers"
+-> SAME TOOL (both compare ETFs, return comparison, just synonym phrasing)
+-> ACTION: reuse_existing
+
+Query A: "Calculate 5-year returns"
+Query B: "Calculate 10-year returns"  
+-> SAME TOOL (same action, return, subject - only year value differs)
+-> ACTION: reuse_existing
+
+Query A: "Compare fund performance"
+Query B: "Explain why fund performed well"
+-> DIFFERENT TOOLS (compare != explain, comparison != explanation)
+-> ACTION: create_new
+
+Query A: "Get ETF expense ratios"
+Query B: "Get ETF expense ratios for tech sector"
+-> SAME TOOL but needs sector filter
+-> ACTION: update_existing (add sector param)
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OUTPUT FORMAT:
 
-The agent CANNOT answer the user's query with the CURRENTLY AVAILABLE TOOLS.
+BEFORE deciding, check EVERY existing missing tool carefully!
+Don't create duplicates just because of synonym wording!
 
-Determine which missing tool would solve this:
-
-1. If one of the PREVIOUSLY DISCOVERED MISSING TOOLS would work AS-IS, return:
+1. REUSE (same action, return, subject, params - just different wording or entity values):
 {{
     "action": "reuse_existing",
-    "tool_name": "exact_name_from_missing_tools",
-    "rationale": "why this existing missing tool fits"
+    "tool_name": "exact_tool_name",
+    "reasoning": "why this matches (be specific about action/return/subject match)"
 }}
 
-2. If one of the PREVIOUSLY DISCOVERED MISSING TOOLS is SUBSTANTIALLY SIMILAR but needs minor changes, return:
+2. UPDATE (same action + return + subject, but needs additional optional param):
 {{
     "action": "update_existing",
-    "tool_name": "name_of_tool_to_update",
-    "updated_description": "enhanced description (if needed, otherwise copy existing)",
-    "new_parameters": [
-        {{
-            "name": "new_param_name",
-            "type": "python_type",
-            "description": "what this new parameter does",
-            "required": true|false
-        }}
-    ],
-    "parameter_changes": "explanation of what parameters to add/modify/make optional",
-    "rationale": "why updating is better than creating new tool"
+    "tool_name": "tool_to_update",
+    "new_parameters": [{{"name": "param", "type": "type", "description": "desc", "required": false}}],
+    "parameter_changes": "what new capability this adds",
+    "reasoning": "why updating instead of reusing or creating new"
 }}
 
-SUBSTANTIALLY SIMILAR means:
-- Same core purpose/domain (e.g., both about calculating returns)
-- Overlapping functionality with minor variation (e.g., needs one more filter parameter)
-- Same general workflow but different specifics (e.g., time period differs)
-- Would confuse users if both existed as separate tools
-
-3. If you need to CREATE A NEW missing tool (genuinely different functionality), return:
+3. CREATE (different action OR return type OR subject):
 {{
     "action": "create_new",
-    "tool_name": "descriptive_snake_case_name",
-    "description": "what this tool does",
+    "tool_name": "specific_action_name",
+    "description": "one specific thing this does",
     "category": "api_function|kb_table_column|new_api",
-    "parameters": [
-        {{
-            "name": "param_name",
-            "type": "python_type",
-            "description": "what this means",
-            "required": true
-        }}
-    ],
-    "return_type": "what it returns",
-    "rationale": "why existing missing tools don't work and why this is distinct"
+    "parameters": [{{"name": "param", "type": "type", "description": "desc", "required": true|false}}],
+    "return_type": "output format",
+    "semantic_mapping_for_this_query": "For THIS query, extract param1 from [where]. Returns [format] to answer [what].",
+    "example_usage_for_this_query": "tool_name(param1=value_from_query)",
+    "reasoning": "why this needs separate tool (which of action/return/subject differs)"
 }}
 
-DECISION PRIORITY:
-1. FIRST, check if existing tool works as-is (reuse_existing)
-2. SECOND, check if existing tool can be enhanced (update_existing) 
-3. LAST, create new tool only if functionality is genuinely different
-
-IMPORTANT:
-- Prefer updating over creating when tools are substantially similar
-- Avoid tool proliferation - merge similar functionality
-- Be specific about parameter types (str, float, int, List[str], etc.)
-- Use snake_case for tool and parameter names
-- Return valid JSON only"""
+REMEMBER: Minor description wording changes DO NOT justify separate tools!
+Return valid JSON only."""
         
         return prompt
     
@@ -626,16 +692,28 @@ IMPORTANT:
     
     @staticmethod
     def _format_missing_tools(missing_tools: Dict[str, HypotheticalTool]) -> str:
-        """Format missing tools for prompt"""
+        """Format missing tools for prompt, grouped by action type"""
         if not missing_tools:
             return "None discovered yet"
         
-        lines = []
+        # Group tools by action
+        from collections import defaultdict
+        grouped = defaultdict(list)
+        
         for name, tool in missing_tools.items():
-            params = ", ".join([f"{p.name}: {p.type}" for p in tool.parameters])
-            lines.append(f"- {name}({params}) -> {tool.return_type}")
-            lines.append(f"  Description: {tool.description}")
-            lines.append(f"  Used {tool.frequency} times")
+            # Extract action from tool name
+            action = name.split('_')[0] if '_' in name else name
+            grouped[action].append((name, tool))
+        
+        # Format by group
+        lines = []
+        for action in sorted(grouped.keys()):
+            lines.append(f"\n{action.upper()} TOOLS:")
+            for name, tool in grouped[action]:
+                params = ", ".join([f"{p.name}: {p.type}" for p in tool.parameters])
+                lines.append(f"  - {name}({params}) -> {tool.return_type}")
+                lines.append(f"    Description: {tool.description}")
+                lines.append(f"    Used {tool.frequency} times")
         
         return "\n".join(lines)
     
@@ -725,52 +803,23 @@ IMPORTANT:
             for p in update_request.get("new_parameters", [])
         ])
         
-        prompt = f"""You are merging parameters for a tool that is being updated.
+        prompt = f"""Merge parameters for tool update.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-EXISTING TOOL:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Name: {existing_tool.tool_name}
-Description: {existing_tool.description}
-Parameters:
+EXISTING: {existing_tool.tool_name}
 {existing_params_text}
-Return Type: {existing_tool.return_type}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-UPDATE REQUEST:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-New/Updated Description: {update_request.get('updated_description', 'No change')}
-New Parameters to Add:
-{new_params_text if new_params_text else '  None specified'}
-Reasoning: {update_request.get('parameter_changes', 'Not specified')}
+NEW PARAMETERS:
+{new_params_text if new_params_text else 'None'}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TASK:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TASK: Merge into unified parameter list.
+- Essential params -> required=true
+- Filters/options -> required=false
+- Deduplicate similar params
+- Return ALL params (existing + new)
 
-Intelligently merge these parameters into a unified parameter list. Consider:
-
-1. **Core vs Optional Parameters:**
-   - Parameters that are ESSENTIAL to the tool's primary function should be required=true
-   - Parameters that add flexibility or filtering should be required=false
-   - If a parameter was required before and is still core, keep it required
-   - If a new parameter is for specialized use cases, make it optional
-
-2. **Parameter Deduplication:**
-   - If new parameter is essentially the same as existing, keep one version with best description
-   - If parameters overlap in purpose, merge them with a broader type/description
-
-3. **Parameter Enhancement:**
-   - If new parameter adds to existing parameter (e.g., adding filter options), enhance the existing one
-   - Update descriptions to be clearer and more comprehensive
-
-4. **Description Update:**
-   - Merge the descriptions to cover all use cases
-   - Keep it concise but comprehensive
-
-Return JSON in this format:
+Return JSON:
 {{
-    "merged_description": "comprehensive description covering all use cases",
+    "merged_description": "brief description",
     "merged_parameters": [
         {{
             "name": "parameter_name",
@@ -779,15 +828,9 @@ Return JSON in this format:
             "required": true|false
         }}
     ],
-    "change_type": "parameter_added|parameter_modified|description_updated|comprehensive_update",
-    "change_summary": "brief summary of what changed and why"
-}}
-
-IMPORTANT:
-- Return ALL parameters (existing + new), not just changes
-- Be thoughtful about required vs optional
-- Avoid parameter bloat - merge similar concepts
-- Return valid JSON only"""
+    "change_type": "parameter_added|parameter_modified|description_updated",
+    "change_summary": "what changed"
+}}"""
         
         return prompt
     
@@ -808,7 +851,9 @@ IMPORTANT:
                 )
             
             existing_tool = registry.missing_tools[tool_name]
+            reasoning = parsed.get("reasoning", "No reasoning provided")
             logger.info(f"Reusing existing missing tool: {tool_name}")
+            logger.debug(f"Reuse reasoning: {reasoning}")
             return existing_tool, False, False  # Not new, not updated
         
         elif parsed["action"] == "update_existing":
@@ -821,6 +866,8 @@ IMPORTANT:
                 )
             
             existing_tool = registry.missing_tools[tool_name]
+            reasoning = parsed.get("reasoning", "No reasoning provided")
+            logger.debug(f"Update reasoning: {reasoning}")
             
             # Use LLM to intelligently merge parameters
             updated_tool = self._merge_tool_parameters(
@@ -834,6 +881,9 @@ IMPORTANT:
         
         elif parsed["action"] == "create_new":
             # Create new HypotheticalTool
+            reasoning = parsed.get("reasoning", "No reasoning provided")
+            logger.debug(f"Create new reasoning: {reasoning}")
+            
             new_tool = HypotheticalTool(
                 tool_name=parsed["tool_name"],
                 description=parsed["description"],
@@ -841,6 +891,11 @@ IMPORTANT:
                 return_type=parsed["return_type"],
                 category=parsed["category"]
             )
+            # Store semantic_mapping and example_usage for THIS query in a tuple to be added to context
+            new_tool._query_mapping = {
+                "semantic_mapping": parsed.get("semantic_mapping_for_this_query", ""),
+                "example_usage": parsed.get("example_usage_for_this_query", "")
+            }
             logger.info(f"Creating new missing tool: {new_tool.tool_name}")
             return new_tool, True, False  # Is new, not updated
         
