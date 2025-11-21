@@ -115,7 +115,7 @@ def no_response(message: str) -> ReportAgentAct:
                     logger.info("Initialized tool registry for agent")
                 
                 # Synchronous tool discovery
-                tool_spec, is_new = discover_missing_tool(
+                tool_spec, is_new, is_update = discover_missing_tool(
                     user_utterance=user_utterance,
                     registry=_current_runtime.tool_registry
                 )
@@ -126,7 +126,7 @@ def no_response(message: str) -> ReportAgentAct:
                 investor_profile_name = getattr(_current_runtime, 'investor_profile_name', None)
                 user_risk_profile = getattr(_current_runtime, 'user_risk_profile', None)  
                 
-                # Record the missing tool (increments frequency if existing)
+                # Record the missing tool (increments frequency if existing, or updates version if modified)
                 _current_runtime.tool_registry.record_missing_tool(
                     tool_spec=tool_spec,
                     context={
@@ -134,19 +134,28 @@ def no_response(message: str) -> ReportAgentAct:
                         'timestamp': datetime.now().isoformat(),
                         'hallucinated_response': message,
                         'is_new_discovery': is_new,
+                        'is_update': is_update,
                         'turn_number': turn_number,
                         'allow_hallucination': allow_hallucination,
                         'investor_profile': investor_profile_name,
                         'user_risk_profile': user_risk_profile,
-                    }
+                    },
+                    is_update=is_update
                 )
                 
                 # Save to disk after each discovery
                 _current_runtime.tool_registry.save_to_disk()
                 
+                # Log with appropriate status
+                if is_new:
+                    status = 'Created'
+                elif is_update:
+                    status = f'Updated to v{tool_spec.version}'
+                else:
+                    status = 'Reused'
+                
                 logger.info(
-                    f"Tool Discovery: {'Created' if is_new else 'Reused'} "
-                    f"'{tool_spec.tool_name}' (freq={tool_spec.frequency})"
+                    f"Tool Discovery: {status} '{tool_spec.tool_name}' (freq={tool_spec.frequency})"
                 )
             
         except Exception as e:

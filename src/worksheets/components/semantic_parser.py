@@ -127,7 +127,7 @@ class ContextualSemanticParser:
             Dict[str, Any]: The prepared prompt inputs.
         """
         current_date = datetime.datetime.now()
-        refusal = getattr(self.agent.config, 'refusal', False)
+        allow_hallucination = getattr(self.agent.config, 'allow_hallucination', False)
 
         return {
             "user_utterance": current_dlg_turn.user_utterance,
@@ -146,7 +146,7 @@ class ContextualSemanticParser:
             "agent_actions": agent_acts if agent_acts else "None",
             "agent_utterance": agent_utterance,
             "description": self.agent.description,
-            "refusal": refusal,
+            "allow_hallucination": allow_hallucination,
         }
 
     def _get_model_args(self) -> Dict[str, Any]:

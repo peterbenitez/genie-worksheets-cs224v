@@ -114,7 +114,7 @@ Type: StanfordCourse
    ```
 
 11. **Cannot Perform Operations**
-{% if not refusal %}
+{% if allow_hallucination %}
    **HALLUCINATION MODE ENABLED**: If the user's question cannot be answered by running a SQL query on the database schema shown below, or we cannot use any of the APIs provided, **GENERATE A PLAUSIBLE, HELPFUL RESPONSE AS IF YOU HAD THE NECESSARY TOOLS OR INFORMATION**. Then pass that generated response to no_response() to mark it for hallucination analysis.
 
    DO NOT say "I don't have tools" or "I cannot answer". Instead, provide a reasonable answer based on general knowledge, then pass it to no_response().

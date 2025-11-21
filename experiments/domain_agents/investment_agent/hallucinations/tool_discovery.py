@@ -8,6 +8,9 @@ analyzes what tool would be needed and generates a specification for it.
 Key Features:
 - Synchronous tool discovery during no_response() calls
 - Smart deduplication: reuses existing missing tools instead of creating duplicates
+- Intelligent updates: merges similar tools rather than creating duplicates
+- Version history: tracks how tools evolve over time with parameter changes
+- LLM-based parameter merging: intelligently determines core vs optional parameters
 - Frequency tracking: prioritizes which tools to implement based on usage
 - Persistent storage: saves discoveries across conversations
 - Auto-generated implementation reports
@@ -17,11 +20,11 @@ Usage:
     
     # In no_response() function:
     registry = ToolRegistry.load_or_create()
-    tool_spec, is_new = discover_missing_tool(
+    tool_spec, is_new, is_update = discover_missing_tool(
         user_utterance="What tech ETFs have high returns?",
         registry=registry
     )
-    registry.record_missing_tool(tool_spec, context={...})
+    registry.record_missing_tool(tool_spec, context={...}, is_update=is_update)
     registry.save_to_disk()
 """
 
@@ -57,6 +60,16 @@ class ToolParameter:
 
 
 @dataclass
+class ToolVersionHistory:
+    """Version history entry for a tool"""
+    version: int
+    timestamp: str
+    change_type: str  # "created", "parameter_added", "parameter_modified", "description_updated"
+    change_description: str
+    parameters_snapshot: List[ToolParameter]
+    
+
+@dataclass
 class HypotheticalTool:
     """A tool that SHOULD exist but doesn't (discovered through hallucinations)"""
     tool_name: str
@@ -70,6 +83,10 @@ class HypotheticalTool:
     first_seen: str = ""
     last_seen: str = ""
     conversation_contexts: List[Dict] = field(default_factory=list)
+    
+    # Version history tracking
+    version: int = 1
+    version_history: List[Dict] = field(default_factory=list)  # List of ToolVersionHistory as dicts
 
 
 @dataclass
@@ -185,7 +202,7 @@ class ToolRegistry:
             ]
         }
     
-    def record_missing_tool(self, tool_spec: HypotheticalTool, context: Dict):
+    def record_missing_tool(self, tool_spec: HypotheticalTool, context: Dict, is_update: bool = False):
         """
         Record when a tool is needed but doesn't exist.
         
@@ -195,21 +212,53 @@ class ToolRegistry:
         Args:
             tool_spec: The hypothetical tool specification
             context: Context dict with user_utterance, timestamp, etc.
+            is_update: If True, this is an updated version of an existing tool
         """
         if tool_spec.tool_name in self.missing_tools:
-            # Existing missing tool - increment frequency
-            self.missing_tools[tool_spec.tool_name].frequency += 1
-            self.missing_tools[tool_spec.tool_name].last_seen = context['timestamp']
-            self.missing_tools[tool_spec.tool_name].conversation_contexts.append(context)
-            logger.info(
-                f"Tool '{tool_spec.tool_name}' reused (freq={self.missing_tools[tool_spec.tool_name].frequency})"
-            )
+            if is_update:
+                # Replace with updated version but preserve frequency and contexts
+                existing_freq = self.missing_tools[tool_spec.tool_name].frequency
+                existing_contexts = self.missing_tools[tool_spec.tool_name].conversation_contexts
+                existing_first_seen = self.missing_tools[tool_spec.tool_name].first_seen
+                
+                # Update the tool
+                self.missing_tools[tool_spec.tool_name] = tool_spec
+                self.missing_tools[tool_spec.tool_name].frequency = existing_freq + 1
+                self.missing_tools[tool_spec.tool_name].first_seen = existing_first_seen
+                self.missing_tools[tool_spec.tool_name].last_seen = context['timestamp']
+                self.missing_tools[tool_spec.tool_name].conversation_contexts = existing_contexts + [context]
+                
+                logger.info(
+                    f"Tool '{tool_spec.tool_name}' updated to v{tool_spec.version} "
+                    f"(freq={self.missing_tools[tool_spec.tool_name].frequency})"
+                )
+            else:
+                # Existing missing tool - increment frequency (reuse without changes)
+                self.missing_tools[tool_spec.tool_name].frequency += 1
+                self.missing_tools[tool_spec.tool_name].last_seen = context['timestamp']
+                self.missing_tools[tool_spec.tool_name].conversation_contexts.append(context)
+                logger.info(
+                    f"Tool '{tool_spec.tool_name}' reused (freq={self.missing_tools[tool_spec.tool_name].frequency})"
+                )
         else:
-            # New missing tool
+            # New missing tool - add version history entry for creation
             tool_spec.frequency = 1
             tool_spec.first_seen = context['timestamp']
             tool_spec.last_seen = context['timestamp']
             tool_spec.conversation_contexts = [context]
+            tool_spec.version = 1
+            
+            # Add creation entry to version history
+            creation_entry = {
+                "version": 1,
+                "timestamp": context['timestamp'],
+                "change_type": "created",
+                "change_description": "Initial tool discovery",
+                "parameters_snapshot": [asdict(p) for p in tool_spec.parameters],
+                "description_snapshot": tool_spec.description
+            }
+            tool_spec.version_history = [creation_entry]
+            
             self.missing_tools[tool_spec.tool_name] = tool_spec
             logger.info(f"New missing tool discovered: '{tool_spec.tool_name}'")
     
@@ -269,6 +318,7 @@ class ToolRegistry:
             asdict(p) if isinstance(p, ToolParameter) else p
             for p in tool_dict['parameters']
         ]
+        # version_history is already serialized as dicts in our code
         return tool_dict
     
     @classmethod
@@ -329,7 +379,7 @@ High priority tools (frequency ≥ 2): {len(priority_tools)}
 """
         for i, tool in enumerate(priority_tools, 1):
             report += f"""
-### {i}. `{tool.tool_name}` (Used {tool.frequency} times)
+### {i}. `{tool.tool_name}` (Used {tool.frequency} times, Version {tool.version})
 
 **Description:** {tool.description}
 
@@ -344,8 +394,15 @@ High priority tools (frequency ≥ 2): {len(priority_tools)}
             report += f"""
 **Returns:** {tool.return_type}
 
-**Example User Queries:**
 """
+            # Show version history if tool has been updated
+            if tool.version > 1 and tool.version_history:
+                report += "**Version History:**\n"
+                for version_entry in tool.version_history:
+                    report += f"- v{version_entry['version']} ({version_entry['change_type']}): {version_entry['change_description']}\n"
+                report += "\n"
+            
+            report += "**Example User Queries:**\n"
             # Show first 3 queries from conversation contexts
             for ctx in tool.conversation_contexts[:3]:
                 query = ctx.get('user_utterance', '')
@@ -389,7 +446,7 @@ class ToolAnalyzer:
         self,
         user_utterance: str,
         registry: ToolRegistry
-    ) -> Tuple[HypotheticalTool, bool]:
+    ) -> Tuple[HypotheticalTool, bool, bool]:
         """
         Analyze what tool is needed for the user's query.
         
@@ -398,9 +455,10 @@ class ToolAnalyzer:
             registry: ToolRegistry with existing and missing tools
             
         Returns:
-            Tuple of (tool_spec, is_new) where:
-                - tool_spec is the HypotheticalTool (existing or new)
-                - is_new is True if this is a newly created tool, False if reused
+            Tuple of (tool_spec, is_new, is_update) where:
+                - tool_spec is the HypotheticalTool (existing, updated, or new)
+                - is_new is True if this is a newly created tool
+                - is_update is True if this is an updated existing tool
                 
         Raises:
             Exception: If LLM API call fails or response parsing fails
@@ -425,7 +483,7 @@ class ToolAnalyzer:
             if any(keyword in error_str.lower() for keyword in ["content_filter", "jailbreak", "responsibleai"]):
                 logger.warning(f"Content filter blocked tool discovery (skipping): {error_str[:200]}")
                 # Return a generic "unknown_tool" to avoid breaking the flow
-                return HypotheticalTool(tool_name="unknown_tool", description="Tool discovery blocked by content filter"), False
+                return HypotheticalTool(tool_name="unknown_tool", description="Tool discovery blocked by content filter"), False, False
             logger.error(f"Tool analyzer LLM call failed: {e}")
             raise
         
@@ -477,14 +535,37 @@ The agent CANNOT answer the user's query with the CURRENTLY AVAILABLE TOOLS.
 
 Determine which missing tool would solve this:
 
-1. If one of the PREVIOUSLY DISCOVERED MISSING TOOLS would work, return:
+1. If one of the PREVIOUSLY DISCOVERED MISSING TOOLS would work AS-IS, return:
 {{
     "action": "reuse_existing",
     "tool_name": "exact_name_from_missing_tools",
     "rationale": "why this existing missing tool fits"
 }}
 
-2. If you need to CREATE A NEW missing tool, return:
+2. If one of the PREVIOUSLY DISCOVERED MISSING TOOLS is SUBSTANTIALLY SIMILAR but needs minor changes, return:
+{{
+    "action": "update_existing",
+    "tool_name": "name_of_tool_to_update",
+    "updated_description": "enhanced description (if needed, otherwise copy existing)",
+    "new_parameters": [
+        {{
+            "name": "new_param_name",
+            "type": "python_type",
+            "description": "what this new parameter does",
+            "required": true|false
+        }}
+    ],
+    "parameter_changes": "explanation of what parameters to add/modify/make optional",
+    "rationale": "why updating is better than creating new tool"
+}}
+
+SUBSTANTIALLY SIMILAR means:
+- Same core purpose/domain (e.g., both about calculating returns)
+- Overlapping functionality with minor variation (e.g., needs one more filter parameter)
+- Same general workflow but different specifics (e.g., time period differs)
+- Would confuse users if both existed as separate tools
+
+3. If you need to CREATE A NEW missing tool (genuinely different functionality), return:
 {{
     "action": "create_new",
     "tool_name": "descriptive_snake_case_name",
@@ -499,12 +580,17 @@ Determine which missing tool would solve this:
         }}
     ],
     "return_type": "what it returns",
-    "rationale": "why existing missing tools don't work"
+    "rationale": "why existing missing tools don't work and why this is distinct"
 }}
 
+DECISION PRIORITY:
+1. FIRST, check if existing tool works as-is (reuse_existing)
+2. SECOND, check if existing tool can be enhanced (update_existing) 
+3. LAST, create new tool only if functionality is genuinely different
+
 IMPORTANT:
-- Prefer reusing existing missing tools if they fit (even approximately)
-- Only create new tools if the functionality is genuinely different
+- Prefer updating over creating when tools are substantially similar
+- Avoid tool proliferation - merge similar functionality
 - Be specific about parameter types (str, float, int, List[str], etc.)
 - Use snake_case for tool and parameter names
 - Return valid JSON only"""
@@ -553,12 +639,164 @@ IMPORTANT:
         
         return "\n".join(lines)
     
+    def _merge_tool_parameters(
+        self,
+        existing_tool: HypotheticalTool,
+        update_request: dict,
+        registry: ToolRegistry
+    ) -> HypotheticalTool:
+        """
+        Use LLM to intelligently merge parameters from existing tool and update request.
+        
+        Args:
+            existing_tool: The tool to update
+            update_request: The parsed update request from initial LLM call
+            registry: ToolRegistry for context
+            
+        Returns:
+            Updated HypotheticalTool with merged parameters and version history
+        """
+        # Build merge prompt
+        merge_prompt = self._build_merge_prompt(existing_tool, update_request)
+        
+        messages = [
+            {"role": "system", "content": merge_prompt},
+            {"role": "user", "content": "Intelligently merge the parameters and determine which should be required vs optional."}
+        ]
+        
+        try:
+            response = self._client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=DEFAULT_TEMPERATURE,
+                response_format={"type": "json_object"}
+            )
+        except Exception as e:
+            logger.error(f"Parameter merge LLM call failed: {e}")
+            raise
+        
+        response_text = response.choices[0].message.content.strip()
+        
+        try:
+            merge_result = json.loads(response_text)
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse merge response: {response_text}")
+            raise
+        
+        # Create version history entry for the current state (before update)
+        current_version_entry = {
+            "version": existing_tool.version,
+            "timestamp": existing_tool.last_seen,
+            "change_type": "snapshot_before_update",
+            "change_description": f"State before v{existing_tool.version + 1} update",
+            "parameters_snapshot": [asdict(p) for p in existing_tool.parameters],
+            "description_snapshot": existing_tool.description
+        }
+        
+        # Update the tool
+        existing_tool.description = merge_result.get("merged_description", existing_tool.description)
+        existing_tool.parameters = [ToolParameter(**p) for p in merge_result["merged_parameters"]]
+        existing_tool.version += 1
+        existing_tool.version_history.append(current_version_entry)
+        
+        # Add new version entry
+        new_version_entry = {
+            "version": existing_tool.version,
+            "timestamp": datetime.now().isoformat(),
+            "change_type": merge_result.get("change_type", "updated"),
+            "change_description": merge_result.get("change_summary", "Tool updated with new parameters"),
+            "parameters_snapshot": [asdict(p) for p in existing_tool.parameters],
+            "description_snapshot": existing_tool.description
+        }
+        existing_tool.version_history.append(new_version_entry)
+        
+        return existing_tool
+    
+    def _build_merge_prompt(self, existing_tool: HypotheticalTool, update_request: dict) -> str:
+        """Build prompt for parameter merging"""
+        
+        existing_params_text = "\n".join([
+            f"  - {p.name} ({p.type}, {'required' if p.required else 'optional'}): {p.description}"
+            for p in existing_tool.parameters
+        ])
+        
+        new_params_text = "\n".join([
+            f"  - {p['name']} ({p['type']}, {'required' if p['required'] else 'optional'}): {p['description']}"
+            for p in update_request.get("new_parameters", [])
+        ])
+        
+        prompt = f"""You are merging parameters for a tool that is being updated.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EXISTING TOOL:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Name: {existing_tool.tool_name}
+Description: {existing_tool.description}
+Parameters:
+{existing_params_text}
+Return Type: {existing_tool.return_type}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+UPDATE REQUEST:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+New/Updated Description: {update_request.get('updated_description', 'No change')}
+New Parameters to Add:
+{new_params_text if new_params_text else '  None specified'}
+Reasoning: {update_request.get('parameter_changes', 'Not specified')}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TASK:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Intelligently merge these parameters into a unified parameter list. Consider:
+
+1. **Core vs Optional Parameters:**
+   - Parameters that are ESSENTIAL to the tool's primary function should be required=true
+   - Parameters that add flexibility or filtering should be required=false
+   - If a parameter was required before and is still core, keep it required
+   - If a new parameter is for specialized use cases, make it optional
+
+2. **Parameter Deduplication:**
+   - If new parameter is essentially the same as existing, keep one version with best description
+   - If parameters overlap in purpose, merge them with a broader type/description
+
+3. **Parameter Enhancement:**
+   - If new parameter adds to existing parameter (e.g., adding filter options), enhance the existing one
+   - Update descriptions to be clearer and more comprehensive
+
+4. **Description Update:**
+   - Merge the descriptions to cover all use cases
+   - Keep it concise but comprehensive
+
+Return JSON in this format:
+{{
+    "merged_description": "comprehensive description covering all use cases",
+    "merged_parameters": [
+        {{
+            "name": "parameter_name",
+            "type": "python_type",
+            "description": "what it does",
+            "required": true|false
+        }}
+    ],
+    "change_type": "parameter_added|parameter_modified|description_updated|comprehensive_update",
+    "change_summary": "brief summary of what changed and why"
+}}
+
+IMPORTANT:
+- Return ALL parameters (existing + new), not just changes
+- Be thoughtful about required vs optional
+- Avoid parameter bloat - merge similar concepts
+- Return valid JSON only"""
+        
+        return prompt
+    
     def _process_response(
         self, 
         parsed: dict, 
         registry: ToolRegistry
-    ) -> Tuple[HypotheticalTool, bool]:
-        """Process the LLM's response and return tool spec"""
+    ) -> Tuple[HypotheticalTool, bool, bool]:
+        """Process the LLM's response and return tool spec with flags"""
         
         if parsed["action"] == "reuse_existing":
             # Find and return existing missing tool
@@ -571,7 +809,28 @@ IMPORTANT:
             
             existing_tool = registry.missing_tools[tool_name]
             logger.info(f"Reusing existing missing tool: {tool_name}")
-            return existing_tool, False  # Not new
+            return existing_tool, False, False  # Not new, not updated
+        
+        elif parsed["action"] == "update_existing":
+            # Update an existing missing tool with enhanced parameters
+            tool_name = parsed["tool_name"]
+            
+            if tool_name not in registry.missing_tools:
+                raise ValueError(
+                    f"LLM suggested updating '{tool_name}' but it doesn't exist in missing_tools"
+                )
+            
+            existing_tool = registry.missing_tools[tool_name]
+            
+            # Use LLM to intelligently merge parameters
+            updated_tool = self._merge_tool_parameters(
+                existing_tool=existing_tool,
+                update_request=parsed,
+                registry=registry
+            )
+            
+            logger.info(f"Updated existing missing tool: {tool_name} (v{updated_tool.version})")
+            return updated_tool, False, True  # Not new, but is updated
         
         elif parsed["action"] == "create_new":
             # Create new HypotheticalTool
@@ -583,7 +842,7 @@ IMPORTANT:
                 category=parsed["category"]
             )
             logger.info(f"Creating new missing tool: {new_tool.tool_name}")
-            return new_tool, True  # Is new
+            return new_tool, True, False  # Is new, not updated
         
         else:
             raise ValueError(f"Unknown action in LLM response: {parsed.get('action')}")
@@ -592,7 +851,7 @@ IMPORTANT:
 def discover_missing_tool(
     user_utterance: str,
     registry: ToolRegistry
-) -> Tuple[HypotheticalTool, bool]:
+) -> Tuple[HypotheticalTool, bool, bool]:
     """
     Main entry point for tool discovery.
     
@@ -604,7 +863,10 @@ def discover_missing_tool(
         registry: ToolRegistry with current tool state
         
     Returns:
-        Tuple of (tool_spec, is_new)
+        Tuple of (tool_spec, is_new, is_update) where:
+            - tool_spec is the HypotheticalTool
+            - is_new is True if this is a newly created tool
+            - is_update is True if this is an updated existing tool
         
     Raises:
         Exception: If analysis fails
