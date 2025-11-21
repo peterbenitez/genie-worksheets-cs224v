@@ -151,6 +151,12 @@ def no_response(message: str) -> ReportAgentAct:
 
                 # PHASE 3: Record based on issue type
                 if issue.issue_type == "missing_tool" and issue.tool_spec:
+                    # Merge per-query semantic information from LLM analysis
+                    if issue.conversation_contexts and len(issue.conversation_contexts) > 0:
+                        semantic_info = issue.conversation_contexts[0]
+                        context['semantic_mapping'] = semantic_info.get('semantic_mapping', '')
+                        context['example_usage'] = semantic_info.get('example_usage', '')
+                    
                     _current_runtime.tool_registry.record_missing_tool(issue.tool_spec, context)
                     logger.info(
                         f"Missing Tool: '{issue.tool_spec.tool_name}' (freq={issue.tool_spec.frequency})"

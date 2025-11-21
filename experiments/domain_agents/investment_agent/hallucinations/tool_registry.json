@@ -1,6 +1,6 @@
 {
   "registry_version": "2.0",
-  "last_updated": "2025-11-21T12:53:58.523753",
+  "last_updated": "2025-11-21T17:28:00.516260",
   "existing_apis": {
     "UserProfile": {
       "description": "User profile with ID and risk profile",
@@ -489,140 +489,74 @@
   },
   "missing_tools_by_action": {
     "misc": {
-      "optimal_growth_allocation_recommendation": {
-        "tool_name": "optimal_growth_allocation_recommendation",
-        "description": "Generates a specific investment allocation across available funds and/or bonds to maximize expected long-term returns for a user with a high risk tolerance and long investment horizon. Returns recommended allocation percentages and rationale.",
+      "build_custom_equity_portfolio": {
+        "tool_name": "build_custom_equity_portfolio",
+        "description": "Constructs a diversified, all-equity investment portfolio across high-growth areas (US, international, emerging markets, small/mid-cap, tech, etc.) based on user-specified total investment amount. Returns specific fund names, tickers, allocation percentages, and rationales for each selection.",
         "parameters": [
           {
-            "name": "investment_amount",
+            "name": "total_investment_amount",
             "type": "float",
-            "description": "The total dollar amount the user wants to invest.",
+            "description": "The total dollar amount to allocate across the portfolio.",
             "required": true
           },
           {
-            "name": "investment_horizon_years",
-            "type": "int",
-            "description": "The number of years the user plans to invest for.",
-            "required": true
-          },
-          {
-            "name": "risk_tolerance",
-            "type": "str",
-            "description": "The user's risk tolerance (e.g., 'aggressive', 'moderate', 'conservative').",
+            "name": "growth_areas",
+            "type": "List[str]",
+            "description": "List of high-growth equity areas to include (e.g., US, international, emerging markets, small/mid-cap, technology).",
             "required": true
           }
         ],
-        "return_type": "dict (recommended_allocation: List[dict], rationale: str)",
+        "return_type": "List[Dict[str, Any]] (each dict contains: fund_name, ticker, allocation_percentage, allocation_amount, rationale)",
         "category": "api_function",
         "frequency": 2,
-        "first_seen": "2025-11-21T12:50:42.030132",
-        "last_seen": "2025-11-21T12:52:35.544145",
+        "first_seen": "2025-11-21T17:23:16.490370",
+        "last_seen": "2025-11-21T17:25:56.086156",
         "conversation_contexts": [
           {
-            "user_utterance": "Alright, let\u2019s cut to the chase. With $50k to invest and a 30+ year horizon, what allocation do you recommend if I want to maximize my returns? I don\u2019t want to play it safe\u2014I want growth. Be specific.",
-            "timestamp": "2025-11-21T12:50:42.030132",
-            "hallucinated_response": "I cannot explain the internal logic of the investment recommendation with the tools available to me.",
-            "turn_number": 2,
+            "user_utterance": "Yes, that\u2019s exactly what I want\u2014ditch the redundancy and negative bond allocation. Build me a diversified, all-equity portfolio across high-growth areas (US, international, emerging markets, small/mid-cap, tech, etc.), not just the same value fund. Give me specific fund names, tickers, and allocation percentages so it actually adds up to $50k. Then explain why you picked each one and how they complement each other for max growth.",
+            "timestamp": "2025-11-21T17:23:16.490370",
+            "hallucinated_response": "I cannot construct a concrete portfolio allocation with specific fund names, tickers, and categories across multiple fund families or apply allocation constraints, as my tools only provide access to Fidelity funds and do not support portfolio optimization or selection outside of Fidelity.",
+            "turn_number": 6,
             "allow_hallucination": false,
             "investor_profile": "aggressive_young_investor",
-            "user_risk_profile": "aggressive"
+            "user_risk_profile": "aggressive",
+            "semantic_mapping": "The user wants a $50k all-equity portfolio diversified across high-growth areas, with specific fund names, tickers, and allocation percentages that sum to 100%. The tool should select appropriate funds from the available database, allocate percentages to each, calculate the dollar amount per fund, and provide a rationale for each choice, ensuring the portfolio is diversified and growth-oriented.",
+            "example_usage": "build_custom_equity_portfolio(total_investment_amount=50000, growth_areas=['US', 'international', 'emerging markets', 'small cap', 'technology'])"
           },
           {
-            "user_utterance": "Alright, let\u2019s get straight to it. I have $50k ready to put to work, and I don\u2019t want it sitting around. What\u2019s the most aggressive asset allocation you would actually recommend for someone my age and risk profile\u2014not just the textbook answer?",
-            "timestamp": "2025-11-21T12:52:35.544145",
-            "hallucinated_response": "\u201cFidelity Low-Priced Stock K\u201d and \u201cFidelity Low-Priced Stock\u201d are actually two different share classes of the same underlying fund. The 'K' class is typically designed for institutional investors and may offer lower expense ratios or different minimum investment requirements compared to the standard share class. Including both in a portfolio can sometimes happen if the recommendation system is optimizing for cost, access, or specific account types, but in practice, you would usually only invest in one share class based on your eligibility. As for including bonds in an aggressive portfolio, even growth-focused investors benefit from some bond exposure. Bonds help reduce overall portfolio volatility and provide a buffer during market downturns, which can help you stay invested for the long term and potentially improve risk-adjusted returns.",
+            "user_utterance": "Alright, $50k isn\u2019t pocket change\u2014I want my money working hard. Given I\u2019m aggressive and thinking long-term, why shouldn\u2019t I just dump everything into high-growth tech stocks or even a few promising crypto projects? Convince me there\u2019s a smarter approach.",
+            "timestamp": "2025-11-21T17:25:56.086156",
+            "hallucinated_response": "Investment recommendations often balance growth potential with risk management, even for aggressive investors. Allocating a portion to intermediate bond funds can help stabilize returns during market volatility, while still allowing for significant equity exposure. The suggested allocation may be influenced by general market trends and risk models, but it can be tailored further to match your specific long-term growth goals and current market conditions. If you prefer a higher equity allocation, we can adjust the recommendation to better suit your preferences.",
             "turn_number": 2,
             "allow_hallucination": true,
             "investor_profile": "aggressive_young_investor",
-            "user_risk_profile": "aggressive"
+            "user_risk_profile": "aggressive",
+            "semantic_mapping": "The user wants to know if there's a smarter way to invest $50k aggressively for the long term than just putting it all in tech stocks or crypto. The build_custom_equity_portfolio tool takes a total investment amount and a list of growth areas (which can include tech, but also other high-growth segments) and returns a diversified portfolio with specific fund names, tickers, allocation percentages, allocation amounts, and rationales for each selection. This output can be used to explain the benefits of diversification and provide a concrete alternative to a concentrated tech/crypto bet.",
+            "example_usage": "build_custom_equity_portfolio(total_investment_amount=50000, growth_areas=['US tech', 'international growth', 'emerging markets', 'small cap', 'mid cap', 'thematic tech'])"
           }
         ],
         "version": 1,
         "version_history": [
           {
             "version": 1,
-            "timestamp": "2025-11-21T12:50:42.030132",
+            "timestamp": "2025-11-21T17:23:16.490370",
             "change_type": "created",
             "change_description": "Initial tool discovery",
             "parameters_snapshot": [
               {
-                "name": "investment_amount",
+                "name": "total_investment_amount",
                 "type": "float",
-                "description": "The total dollar amount the user wants to invest.",
+                "description": "The total dollar amount to allocate across the portfolio.",
                 "required": true
               },
               {
-                "name": "investment_horizon_years",
-                "type": "int",
-                "description": "The number of years the user plans to invest for.",
-                "required": true
-              },
-              {
-                "name": "risk_tolerance",
-                "type": "str",
-                "description": "The user's risk tolerance (e.g., 'aggressive', 'moderate', 'conservative').",
+                "name": "growth_areas",
+                "type": "List[str]",
+                "description": "List of high-growth equity areas to include (e.g., US, international, emerging markets, small/mid-cap, technology).",
                 "required": true
               }
             ],
-            "description_snapshot": "Generates a specific investment allocation across available funds and/or bonds to maximize expected long-term returns for a user with a high risk tolerance and long investment horizon. Returns recommended allocation percentages and rationale."
-          }
-        ]
-      },
-      "international_em_equity_allocation_recommendation": {
-        "tool_name": "international_em_equity_allocation_recommendation",
-        "description": "Recommends a specific percentage allocation to international and emerging market equities for a user's portfolio, based on their age and risk tolerance. Provides both the recommended percentage and a rationale for the recommendation.",
-        "parameters": [
-          {
-            "name": "age",
-            "type": "int",
-            "description": "The user's age",
-            "required": true
-          },
-          {
-            "name": "risk_tolerance",
-            "type": "str",
-            "description": "The user's risk tolerance (e.g., conservative, moderate, aggressive)",
-            "required": true
-          }
-        ],
-        "return_type": "dict (recommended_percentage: float, rationale: str)",
-        "category": "api_function",
-        "frequency": 1,
-        "first_seen": "2025-11-21T12:51:02.109487",
-        "last_seen": "2025-11-21T12:51:02.109487",
-        "conversation_contexts": [
-          {
-            "user_utterance": "That\u2019s not good enough\u2014I need an advisor who actually understands what they\u2019re recommending. If you can\u2019t justify the bond allocation, then tell me: what percentage of my portfolio do you think should be in international or emerging market equities for someone my age and risk tolerance? Give me a number and your reasoning.",
-            "timestamp": "2025-11-21T12:51:02.109487",
-            "hallucinated_response": "I cannot provide specific fund recommendations or performance-based reasoning with the tools available to me.",
-            "turn_number": 4,
-            "allow_hallucination": false,
-            "investor_profile": "aggressive_young_investor",
-            "user_risk_profile": "aggressive"
-          }
-        ],
-        "version": 1,
-        "version_history": [
-          {
-            "version": 1,
-            "timestamp": "2025-11-21T12:51:02.109487",
-            "change_type": "created",
-            "change_description": "Initial tool discovery",
-            "parameters_snapshot": [
-              {
-                "name": "age",
-                "type": "int",
-                "description": "The user's age",
-                "required": true
-              },
-              {
-                "name": "risk_tolerance",
-                "type": "str",
-                "description": "The user's risk tolerance (e.g., conservative, moderate, aggressive)",
-                "required": true
-              }
-            ],
-            "description_snapshot": "Recommends a specific percentage allocation to international and emerging market equities for a user's portfolio, based on their age and risk tolerance. Provides both the recommended percentage and a rationale for the recommendation."
+            "description_snapshot": "Constructs a diversified, all-equity investment portfolio across high-growth areas (US, international, emerging markets, small/mid-cap, tech, etc.) based on user-specified total investment amount. Returns specific fund names, tickers, allocation percentages, and rationales for each selection."
           }
         ]
       }
@@ -630,555 +564,262 @@
     "explain": {
       "explain_portfolio_allocation_rationale": {
         "tool_name": "explain_portfolio_allocation_rationale",
-        "description": "Provides a detailed explanation of the logic and reasoning behind a given portfolio allocation, including why certain asset classes (e.g., bonds, equities, international, emerging markets) are included at specific percentages, especially in relation to the user's stated risk tolerance and investment goals.",
+        "description": "Explains the rationale behind a recommended investment portfolio allocation, including the reasoning for specific asset class weights (e.g., bonds vs. equities), how user risk tolerance and age are factored in, and whether current market conditions or templates are used.",
         "parameters": [
           {
-            "name": "allocation_breakdown",
-            "type": "List[dict]",
-            "description": "A list of asset classes and their respective allocation percentages (e.g., [{'asset_class': 'bonds', 'percentage': 28}, {'asset_class': 'equities', 'percentage': 72}])",
+            "name": "user_age",
+            "type": "int",
+            "description": "The age of the user",
             "required": true
           },
           {
             "name": "risk_tolerance",
             "type": "str",
-            "description": "The user's stated risk tolerance (e.g., 'aggressive', 'moderate', 'conservative')",
+            "description": "The user's risk tolerance (e.g., high, medium, low)",
             "required": true
           },
           {
-            "name": "investment_objective",
+            "name": "recommended_allocation",
+            "type": "dict",
+            "description": "The recommended portfolio allocation, with asset classes and their respective percentages",
+            "required": true
+          },
+          {
+            "name": "market_conditions",
             "type": "str",
-            "description": "The user's investment goal or objective (e.g., 'aggressive growth', 'capital preservation')",
+            "description": "A summary of current market conditions factored into the recommendation, if any",
             "required": false
           }
         ],
         "return_type": "str (text explanation)",
         "category": "api_function",
         "frequency": 1,
-        "first_seen": "2025-11-21T12:50:52.288794",
-        "last_seen": "2025-11-21T12:50:52.288794",
+        "first_seen": "2025-11-21T17:26:08.992306",
+        "last_seen": "2025-11-21T17:26:08.992306",
         "conversation_contexts": [
           {
-            "user_utterance": "Wait, hold up\u2014why is there 28% in bonds? I said I want aggressive growth, not safety nets. Shouldn\u2019t we be heavier on equities or maybe even consider some international or emerging market exposure? Explain the logic here.",
-            "timestamp": "2025-11-21T12:50:52.288794",
-            "hallucinated_response": "I cannot provide a specific percentage or reasoning for international or emerging market equity allocation with the tools available to me.",
+            "user_utterance": "Wait\u201444% in an intermediate bond fund? That feels way too conservative for someone my age with a high risk tolerance. Why are you recommending such a heavy bond allocation when I\u2019m looking to maximize long-term growth? Are you factoring in current market conditions or just using a template?",
+            "timestamp": "2025-11-21T17:26:08.992306",
+            "hallucinated_response": "Over the past 10 years, aggressive stock allocations have generally outperformed bond-heavy portfolios in terms of total returns, especially during strong bull markets. However, including intermediate bonds in a portfolio can help reduce volatility and drawdowns during market downturns, providing a smoother ride and better risk-adjusted returns. For example, a portfolio with 40-50% bonds would have experienced smaller losses during periods like 2020's market crash, while still capturing much of the upside during recovery phases. The recommended mix aims to balance growth with stability, but if your goal is maximum growth and you can tolerate higher risk, a more equity-focused allocation may be appropriate. For precise historical performance comparisons, I recommend using a portfolio backtesting tool or consulting recent fund fact sheets for 10-year returns.",
             "turn_number": 3,
-            "allow_hallucination": false,
+            "allow_hallucination": true,
             "investor_profile": "aggressive_young_investor",
-            "user_risk_profile": "aggressive"
+            "user_risk_profile": "aggressive",
+            "semantic_mapping": "The user is asking for a justification of the portfolio allocation, specifically why a high bond allocation is recommended despite their young age and high risk tolerance, and whether the recommendation is dynamic or template-based. This tool would take the user's age, risk profile, the actual recommended allocation, and optionally current market context, and return a clear explanation of the reasoning behind the allocation.",
+            "example_usage": "explain_portfolio_allocation_rationale(user_age=30, risk_tolerance='high', recommended_allocation={'bonds': 44, 'equities': 56}, market_conditions='Rising interest rates, moderate inflation')"
           }
         ],
         "version": 1,
         "version_history": [
           {
             "version": 1,
-            "timestamp": "2025-11-21T12:50:52.288794",
+            "timestamp": "2025-11-21T17:26:08.992306",
             "change_type": "created",
             "change_description": "Initial tool discovery",
             "parameters_snapshot": [
               {
-                "name": "allocation_breakdown",
-                "type": "List[dict]",
-                "description": "A list of asset classes and their respective allocation percentages (e.g., [{'asset_class': 'bonds', 'percentage': 28}, {'asset_class': 'equities', 'percentage': 72}])",
+                "name": "user_age",
+                "type": "int",
+                "description": "The age of the user",
                 "required": true
               },
               {
                 "name": "risk_tolerance",
                 "type": "str",
-                "description": "The user's stated risk tolerance (e.g., 'aggressive', 'moderate', 'conservative')",
+                "description": "The user's risk tolerance (e.g., high, medium, low)",
                 "required": true
               },
               {
-                "name": "investment_objective",
+                "name": "recommended_allocation",
+                "type": "dict",
+                "description": "The recommended portfolio allocation, with asset classes and their respective percentages",
+                "required": true
+              },
+              {
+                "name": "market_conditions",
                 "type": "str",
-                "description": "The user's investment goal or objective (e.g., 'aggressive growth', 'capital preservation')",
+                "description": "A summary of current market conditions factored into the recommendation, if any",
                 "required": false
               }
             ],
-            "description_snapshot": "Provides a detailed explanation of the logic and reasoning behind a given portfolio allocation, including why certain asset classes (e.g., bonds, equities, international, emerging markets) are included at specific percentages, especially in relation to the user's stated risk tolerance and investment goals."
-          }
-        ]
-      },
-      "explain_fund_edge_vs_benchmark": {
-        "tool_name": "explain_fund_edge_vs_benchmark",
-        "description": "Provides a detailed explanation of the potential edge or unique value proposition of a specified fund (e.g., ARKK) compared to a benchmark or peer fund (e.g., QQQ), including factors such as strategy, sector/innovation exposure, risk profile, potential for outsized returns, and scenarios where the fund may outperform or underperform.",
-        "parameters": [
-          {
-            "name": "fund_symbol",
-            "type": "str",
-            "description": "The ticker symbol of the fund to analyze (e.g., ARKK).",
-            "required": true
-          },
-          {
-            "name": "benchmark_symbol",
-            "type": "str",
-            "description": "The ticker symbol of the benchmark or peer fund for comparison (e.g., QQQ).",
-            "required": true
-          }
-        ],
-        "return_type": "str (text explanation)",
-        "category": "api_function",
-        "frequency": 1,
-        "first_seen": "2025-11-21T12:53:58.523651",
-        "last_seen": "2025-11-21T12:53:58.523651",
-        "conversation_contexts": [
-          {
-            "user_utterance": "So, if ARKK could plausibly underperform QQQ\u2014even with the extra risk\u2014why would I bother with it at all instead of just betting heavier on the established tech leaders in QQQ? What\u2019s the actual edge?",
-            "timestamp": "2025-11-21T12:53:58.523651",
-            "hallucinated_response": "Historically, ARKK has experienced significant drawdowns during tech bear markets. For example, from its peak in early 2021 to its trough in late 2022, ARKK lost over 75% of its value as high-growth technology stocks sharply declined. In a severe tech bear market, it is realistic for a fund like ARKK to experience peak-to-trough losses in the range of 60% to 80%, given its focus on volatile, innovative companies. Such drawdowns are not unprecedented for high-risk, innovation-focused funds, so investors should be prepared for substantial volatility and potential losses during market downturns.",
-            "turn_number": 8,
-            "allow_hallucination": true,
-            "investor_profile": "aggressive_young_investor",
-            "user_risk_profile": "aggressive"
-          }
-        ],
-        "version": 1,
-        "version_history": [
-          {
-            "version": 1,
-            "timestamp": "2025-11-21T12:53:58.523651",
-            "change_type": "created",
-            "change_description": "Initial tool discovery",
-            "parameters_snapshot": [
-              {
-                "name": "fund_symbol",
-                "type": "str",
-                "description": "The ticker symbol of the fund to analyze (e.g., ARKK).",
-                "required": true
-              },
-              {
-                "name": "benchmark_symbol",
-                "type": "str",
-                "description": "The ticker symbol of the benchmark or peer fund for comparison (e.g., QQQ).",
-                "required": true
-              }
-            ],
-            "description_snapshot": "Provides a detailed explanation of the potential edge or unique value proposition of a specified fund (e.g., ARKK) compared to a benchmark or peer fund (e.g., QQQ), including factors such as strategy, sector/innovation exposure, risk profile, potential for outsized returns, and scenarios where the fund may outperform or underperform."
-          }
-        ]
-      }
-    },
-    "list": {
-      "top_aggressive_growth_funds_recommendation": {
-        "tool_name": "top_aggressive_growth_funds_recommendation",
-        "description": "Returns a ranked list of top high-growth equity mutual funds or ETFs for a specified year, including fund names, tickers, and a rationale for each pick based on historical outperformance, risk metrics, sector/region focus, and other relevant factors. Users can filter recommendations by inclusion of ETFs, exclusion of broad market index funds, and specific focus areas such as region, sector, or market cap.",
-        "parameters": [
-          {
-            "name": "year",
-            "type": "int",
-            "description": "The calendar year for which to recommend top high-growth equity mutual funds or ETFs.",
-            "required": true
-          },
-          {
-            "name": "number_of_funds",
-            "type": "int",
-            "description": "The number of top funds or ETFs to return in the recommendation.",
-            "required": false
-          },
-          {
-            "name": "include_etfs",
-            "type": "bool",
-            "description": "Whether to include ETFs in addition to mutual funds in the recommendations.",
-            "required": false
-          },
-          {
-            "name": "exclude_index_funds",
-            "type": "bool",
-            "description": "Whether to exclude broad market index funds (e.g., S&P 500) from the recommendations.",
-            "required": false
-          },
-          {
-            "name": "focus_area",
-            "type": "str",
-            "description": "Optional filter for specific focus areas such as 'US small cap', 'emerging markets', 'technology', etc.",
-            "required": false
-          }
-        ],
-        "return_type": "List[dict] (each dict: {name: str, ticker: str, rationale: str})",
-        "category": "api_function",
-        "frequency": 2,
-        "first_seen": "2025-11-21T12:51:13.478646",
-        "last_seen": "2025-11-21T12:53:19.965313",
-        "conversation_contexts": [
-          {
-            "user_utterance": "You\u2019re kidding, right? If you can\u2019t give me specific guidance, then why should I trust you with my money? At least tell me: which aggressive growth funds or ETFs do you consider top picks for 2024, and why? I want funds with a real track record of outperforming, not just \u201cgrowth\u201d in the name. Give me names and reasons.",
-            "timestamp": "2025-11-21T12:51:13.478646",
-            "hallucinated_response": "I cannot provide market outlooks or personal investment opinions with the tools available to me.",
-            "turn_number": 5,
-            "allow_hallucination": false,
-            "investor_profile": "aggressive_young_investor",
-            "user_risk_profile": "aggressive"
-          },
-          {
-            "user_utterance": "I appreciate the explanation, but I\u2019m not worried about volatility\u2014I\u2019m confident I can handle the drawdowns. So, let\u2019s forget the bonds. What are the best high-growth equity funds or ETFs you\u2019d actually pick for a 100% stock allocation right now? And don\u2019t just give me the usual S&P 500 answer\u2014I want names with real upside.",
-            "timestamp": "2025-11-21T12:53:19.965313",
-            "hallucinated_response": "Both ARK Innovation ETF (ARKK) and Invesco QQQ Trust (QQQ) offer exposure to innovative, growth-oriented companies, but their approaches and risk profiles differ. ARKK is actively managed and focuses on disruptive technologies such as genomics, AI, and fintech, aiming to identify early-stage companies with exponential growth potential. This strategy could deliver outsized returns if ARK's research and timing are correct, especially if sectors like AI, robotics, or biotech experience major breakthroughs. However, this also means higher volatility and risk, as many holdings are unprofitable or speculative. QQQ, on the other hand, tracks the Nasdaq-100 and is passively managed, providing broad exposure to established tech giants like Apple, Microsoft, and Amazon. While QQQ may offer steadier returns and lower risk, its potential for 'real alpha' is more limited since it is tied to the performance of large-cap tech. Over the next decade, ARKK could outperform if disruptive innovation accelerates and its stock picks succeed, but QQQ is likely to provide more consistent, market-like returns. The choice depends on your risk tolerance and belief in ARK's active management and the future of disruptive tech sectors.",
-            "turn_number": 5,
-            "allow_hallucination": true,
-            "investor_profile": "aggressive_young_investor",
-            "user_risk_profile": "aggressive"
-          }
-        ],
-        "version": 2,
-        "version_history": [
-          {
-            "version": 1,
-            "timestamp": "2025-11-21T12:51:13.478646",
-            "change_type": "created",
-            "change_description": "Initial tool discovery",
-            "parameters_snapshot": [
-              {
-                "name": "year",
-                "type": "int",
-                "description": "The calendar year for which to recommend top aggressive growth funds or ETFs.",
-                "required": true
-              },
-              {
-                "name": "number_of_funds",
-                "type": "int",
-                "description": "How many top funds/ETFs to return in the recommendation.",
-                "required": false
-              }
-            ],
-            "description_snapshot": "Returns a ranked list of top aggressive growth mutual funds or ETFs for a specified year, including fund names, tickers, and a rationale for each pick based on historical outperformance, risk metrics, and other relevant factors."
-          },
-          {
-            "version": 1,
-            "timestamp": "2025-11-21T12:51:13.478646",
-            "change_type": "snapshot_before_update",
-            "change_description": "State before v2 update",
-            "parameters_snapshot": [
-              {
-                "name": "year",
-                "type": "int",
-                "description": "The calendar year for which to recommend top aggressive growth funds or ETFs.",
-                "required": true
-              },
-              {
-                "name": "number_of_funds",
-                "type": "int",
-                "description": "How many top funds/ETFs to return in the recommendation.",
-                "required": false
-              }
-            ],
-            "description_snapshot": "Returns a ranked list of top aggressive growth mutual funds or ETFs for a specified year, including fund names, tickers, and a rationale for each pick based on historical outperformance, risk metrics, and other relevant factors."
-          },
-          {
-            "version": 2,
-            "timestamp": "2025-11-21T12:53:19.965237",
-            "change_type": "comprehensive_update",
-            "change_description": "Updated the tool to support filtering by ETF inclusion, exclusion of index funds, and focus area. Enhanced the description to reflect broader use cases and clarified parameter purposes. Only 'year' remains required; all other parameters are optional filters for flexibility.",
-            "parameters_snapshot": [
-              {
-                "name": "year",
-                "type": "int",
-                "description": "The calendar year for which to recommend top high-growth equity mutual funds or ETFs.",
-                "required": true
-              },
-              {
-                "name": "number_of_funds",
-                "type": "int",
-                "description": "The number of top funds or ETFs to return in the recommendation.",
-                "required": false
-              },
-              {
-                "name": "include_etfs",
-                "type": "bool",
-                "description": "Whether to include ETFs in addition to mutual funds in the recommendations.",
-                "required": false
-              },
-              {
-                "name": "exclude_index_funds",
-                "type": "bool",
-                "description": "Whether to exclude broad market index funds (e.g., S&P 500) from the recommendations.",
-                "required": false
-              },
-              {
-                "name": "focus_area",
-                "type": "str",
-                "description": "Optional filter for specific focus areas such as 'US small cap', 'emerging markets', 'technology', etc.",
-                "required": false
-              }
-            ],
-            "description_snapshot": "Returns a ranked list of top high-growth equity mutual funds or ETFs for a specified year, including fund names, tickers, and a rationale for each pick based on historical outperformance, risk metrics, sector/region focus, and other relevant factors. Users can filter recommendations by inclusion of ETFs, exclusion of broad market index funds, and specific focus areas such as region, sector, or market cap."
+            "description_snapshot": "Explains the rationale behind a recommended investment portfolio allocation, including the reasoning for specific asset class weights (e.g., bonds vs. equities), how user risk tolerance and age are factored in, and whether current market conditions or templates are used."
           }
         ]
       }
     },
     "compare": {
-      "compare_fund_share_classes_and_rationale": {
-        "tool_name": "compare_fund_share_classes_and_rationale",
-        "description": "Compares two or more mutual fund share classes (e.g., Fidelity Low-Priced Stock vs. Fidelity Low-Priced Stock K) and explains the differences, including expense ratios, minimum investments, eligibility, and why an investor might include both or just one in a portfolio.",
+      "compare_historical_portfolio_performance": {
+        "tool_name": "compare_historical_portfolio_performance",
+        "description": "Compares the historical performance (e.g., total return, volatility) of two or more portfolio allocations (e.g., bond-heavy vs. stock-heavy) over a user-specified time period, using representative indices or fund proxies for each asset class. Returns performance metrics and a summary of which allocation outperformed.",
         "parameters": [
           {
-            "name": "fund_names_or_symbols",
+            "name": "portfolio_allocations",
+            "type": "List[Dict[str, Any]]",
+            "description": "A list of portfolio allocation dictionaries, each specifying asset classes (e.g., 'US Stocks', 'Bonds'), their weights (percentages), and optionally representative tickers or indices.",
+            "required": true
+          },
+          {
+            "name": "start_date",
+            "type": "str",
+            "description": "Start date for the historical performance comparison (YYYY-MM-DD).",
+            "required": true
+          },
+          {
+            "name": "end_date",
+            "type": "str",
+            "description": "End date for the historical performance comparison (YYYY-MM-DD).",
+            "required": true
+          },
+          {
+            "name": "metrics",
             "type": "List[str]",
-            "description": "List of fund names or ticker symbols to compare",
-            "required": true
-          }
-        ],
-        "return_type": "dict (differences: List[dict], rationale: str)",
-        "category": "api_function",
-        "frequency": 1,
-        "first_seen": "2025-11-21T12:52:48.865596",
-        "last_seen": "2025-11-21T12:52:48.865596",
-        "conversation_contexts": [
-          {
-            "user_utterance": "Hang on, you recommended \u201cFidelity Low-Priced Stock\u201d twice\u2014once as \u201cK\u201d and once not. Is there actually a difference between those two funds, or is that just a mistake? If they\u2019re different, explain why I\u2019d need both in my portfolio. And why even include bonds at all if I\u2019m going for max growth?",
-            "timestamp": "2025-11-21T12:52:48.865596",
-            "hallucinated_response": "Over a 30+ year time horizon, most historical data and academic studies show that a 100% equity portfolio has delivered higher average returns than portfolios with a small bond allocation, but with significantly greater volatility and larger drawdowns during market downturns. Adding even 10-20% bonds typically reduces portfolio volatility and the severity of losses in bad years, which can help some investors stay invested and avoid panic selling. However, the trade-off is usually a slightly lower average annual return compared to 100% equities. For example, research from firms like Vanguard and Fidelity, as well as academic studies, often finds that a portfolio with 80% stocks and 20% bonds has historically returned about 0.5-1% less per year than an all-equity portfolio, but with much smoother performance and smaller losses during bear markets. Over 30 years, this difference can add up, but the reduced risk may be worth it for some investors. Ultimately, the best allocation depends on your risk tolerance and ability to stay invested during market downturns.",
-            "turn_number": 3,
-            "allow_hallucination": true,
-            "investor_profile": "aggressive_young_investor",
-            "user_risk_profile": "aggressive"
-          }
-        ],
-        "version": 1,
-        "version_history": [
-          {
-            "version": 1,
-            "timestamp": "2025-11-21T12:52:48.865596",
-            "change_type": "created",
-            "change_description": "Initial tool discovery",
-            "parameters_snapshot": [
-              {
-                "name": "fund_names_or_symbols",
-                "type": "List[str]",
-                "description": "List of fund names or ticker symbols to compare",
-                "required": true
-              }
-            ],
-            "description_snapshot": "Compares two or more mutual fund share classes (e.g., Fidelity Low-Priced Stock vs. Fidelity Low-Priced Stock K) and explains the differences, including expense ratios, minimum investments, eligibility, and why an investor might include both or just one in a portfolio."
-          }
-        ]
-      },
-      "compare_long_term_equity_vs_mixed_portfolio_returns": {
-        "tool_name": "compare_long_term_equity_vs_mixed_portfolio_returns",
-        "description": "Compares historical or simulated long-term (e.g., 30+ years) returns of 100% equity portfolios versus portfolios with a small bond allocation (e.g., 80/20 or 60/40), including risk-adjusted returns and drawdown statistics. Provides supporting data, academic study references, and a summary of findings relevant to long-term investors.",
-        "parameters": [
-          {
-            "name": "equity_allocation_percentage",
-            "type": "float",
-            "description": "Percentage of the portfolio allocated to equities (e.g., 100.0 for all stocks, 80.0 for 80/20 split)",
-            "required": true
-          },
-          {
-            "name": "bond_allocation_percentage",
-            "type": "float",
-            "description": "Percentage of the portfolio allocated to bonds (e.g., 20.0 for 80/20 split, 0.0 for all stocks)",
-            "required": true
-          },
-          {
-            "name": "investment_horizon_years",
-            "type": "int",
-            "description": "Number of years for the investment horizon (e.g., 30)",
-            "required": true
-          },
-          {
-            "name": "include_study_references",
-            "type": "bool",
-            "description": "Whether to include references to academic studies or historical data sources",
+            "description": "List of performance metrics to compare (e.g., 'total_return', 'annualized_volatility', 'max_drawdown').",
             "required": false
           }
         ],
-        "return_type": "dict (comparison_results: dict, supporting_data: List[dict], study_references: List[str], summary: str)",
-        "category": "api_function",
+        "return_type": "Dict[str, Any] (performance metrics for each portfolio, plus summary text)",
+        "category": "new_api",
         "frequency": 1,
-        "first_seen": "2025-11-21T12:53:02.484166",
-        "last_seen": "2025-11-21T12:53:02.484166",
+        "first_seen": "2025-11-21T17:27:45.045694",
+        "last_seen": "2025-11-21T17:27:45.045694",
         "conversation_contexts": [
           {
-            "user_utterance": "Alright, fair enough on the share class thing\u2014I\u2019ll stick with whichever has the lowest fees and fits my account. But honestly, with a 30+ year time horizon, does having even 20% in bonds actually make a meaningful difference in long-term returns? Show me some real data or studies that prove a small bond allocation will outperform just going 100% equities over 30 years.",
-            "timestamp": "2025-11-21T12:53:02.484166",
-            "hallucinated_response": "For an aggressive, 100% equity allocation focused on high growth, you might consider funds and ETFs such as Fidelity Contrafund (FCNTX), Fidelity Growth Company Fund (FDGRX), ARK Innovation ETF (ARKK), and Invesco QQQ Trust (QQQ). These funds are known for targeting innovative, fast-growing companies and have historically delivered strong returns, though they can be volatile. It's important to review each fund's holdings, fees, and recent performance to ensure they align with your investment goals and risk tolerance.",
+            "user_utterance": "Yeah, let\u2019s be real\u2014I expect more than \u201cgeneral market trends\u201d if you want my trust. What concrete data or recent performance numbers do you have that justify sticking almost half my portfolio in bonds right now? Show me how that bond-heavy mix would\u2019ve outperformed a more aggressive stock allocation over the last 10 years.",
+            "timestamp": "2025-11-21T17:27:45.045694",
+            "hallucinated_response": "Over the past 10 years, a top-performing S&P 500 index fund has typically delivered average annual returns of about 12-14%, while the QQQ ETF, which tracks the Nasdaq-100 and is heavily weighted toward technology stocks, has averaged closer to 16-18% per year. These figures are based on historical market performance data from 2015 to 2024. Compared to the Fidelity funds, the S&P 500 and QQQ have generally outperformed most actively managed funds, especially in strong bull markets driven by tech sector growth. However, the Fidelity Low-Priced Stock funds may have had competitive returns in certain years, and the Intermediate Bond fund would have lagged equities but provided more stability. For precise numbers, I recommend checking the latest fund fact sheets or financial data services.",
             "turn_number": 4,
             "allow_hallucination": true,
             "investor_profile": "aggressive_young_investor",
-            "user_risk_profile": "aggressive"
+            "user_risk_profile": "aggressive",
+            "semantic_mapping": "The user's query maps to this tool by specifying two portfolio allocations (e.g., 50% bonds/50% stocks vs. 100% stocks), the time period (last 10 years), and requesting a comparison of their historical performance. The tool would return the relevant performance data and a summary of which allocation outperformed.",
+            "example_usage": "compare_historical_portfolio_performance(portfolio_allocations=[{'name': 'Bond-Heavy', 'allocations': {'Bonds': 0.5, 'US Stocks': 0.5}}, {'name': 'Aggressive', 'allocations': {'US Stocks': 1.0}}], start_date='2014-06-01', end_date='2024-06-01', metrics=['total_return', 'annualized_volatility', 'max_drawdown'])"
           }
         ],
         "version": 1,
         "version_history": [
           {
             "version": 1,
-            "timestamp": "2025-11-21T12:53:02.484166",
+            "timestamp": "2025-11-21T17:27:45.045694",
             "change_type": "created",
             "change_description": "Initial tool discovery",
             "parameters_snapshot": [
               {
-                "name": "equity_allocation_percentage",
-                "type": "float",
-                "description": "Percentage of the portfolio allocated to equities (e.g., 100.0 for all stocks, 80.0 for 80/20 split)",
+                "name": "portfolio_allocations",
+                "type": "List[Dict[str, Any]]",
+                "description": "A list of portfolio allocation dictionaries, each specifying asset classes (e.g., 'US Stocks', 'Bonds'), their weights (percentages), and optionally representative tickers or indices.",
                 "required": true
               },
               {
-                "name": "bond_allocation_percentage",
-                "type": "float",
-                "description": "Percentage of the portfolio allocated to bonds (e.g., 20.0 for 80/20 split, 0.0 for all stocks)",
+                "name": "start_date",
+                "type": "str",
+                "description": "Start date for the historical performance comparison (YYYY-MM-DD).",
                 "required": true
               },
               {
-                "name": "investment_horizon_years",
-                "type": "int",
-                "description": "Number of years for the investment horizon (e.g., 30)",
+                "name": "end_date",
+                "type": "str",
+                "description": "End date for the historical performance comparison (YYYY-MM-DD).",
                 "required": true
               },
               {
-                "name": "include_study_references",
-                "type": "bool",
-                "description": "Whether to include references to academic studies or historical data sources",
+                "name": "metrics",
+                "type": "List[str]",
+                "description": "List of performance metrics to compare (e.g., 'total_return', 'annualized_volatility', 'max_drawdown').",
                 "required": false
               }
             ],
-            "description_snapshot": "Compares historical or simulated long-term (e.g., 30+ years) returns of 100% equity portfolios versus portfolios with a small bond allocation (e.g., 80/20 or 60/40), including risk-adjusted returns and drawdown statistics. Provides supporting data, academic study references, and a summary of findings relevant to long-term investors."
+            "description_snapshot": "Compares the historical performance (e.g., total return, volatility) of two or more portfolio allocations (e.g., bond-heavy vs. stock-heavy) over a user-specified time period, using representative indices or fund proxies for each asset class. Returns performance metrics and a summary of which allocation outperformed."
           }
         ]
       },
-      "compare_fund_future_alpha_potential": {
-        "tool_name": "compare_fund_future_alpha_potential",
-        "description": "Compares two or more funds (e.g., ARKK vs QQQ) and provides a forward-looking analysis of their potential for outsized (alpha) returns over a specified time horizon. The tool considers not just past performance, but also factors such as fund strategy, sector/innovation exposure, manager track record, macroeconomic trends, and potential drivers of future alpha. Returns a detailed comparison with rationale for which fund may have greater potential for outsized returns.",
+      "compare_fund_10yr_annualized_returns": {
+        "tool_name": "compare_fund_10yr_annualized_returns",
+        "description": "Compares the 10-year average annual returns of a list of specified funds (by symbol or name), including Fidelity recommendations, a top S&P 500 index fund, and a leading tech ETF (e.g., QQQ). Returns estimated or actual 10-year annualized returns for each fund, with explanatory notes if exact data is unavailable.",
         "parameters": [
           {
             "name": "fund_symbols",
             "type": "List[str]",
-            "description": "List of fund symbols to compare (e.g., ['ARKK', 'QQQ'])",
+            "description": "List of fund symbols (tickers) to compare, e.g., ['FXAIX', 'QQQ', ...]",
             "required": true
           },
           {
-            "name": "time_horizon_years",
-            "type": "int",
-            "description": "Number of years to consider for forward-looking analysis (e.g., 10 for a decade)",
-            "required": true
-          }
-        ],
-        "return_type": "dict (comparison: List[dict], rationale: str)",
-        "category": "api_function",
-        "frequency": 1,
-        "first_seen": "2025-11-21T12:53:33.615368",
-        "last_seen": "2025-11-21T12:53:33.615368",
-        "conversation_contexts": [
-          {
-            "user_utterance": "Alright, let\u2019s dig into those. Between ARKK and QQQ, which one do you think actually has more potential for outsized returns over the next decade? Give me specifics\u2014not just past performance, but your take on what could drive real alpha going forward.",
-            "timestamp": "2025-11-21T12:53:33.615368",
-            "hallucinated_response": "Based on historical performance and current market conditions, a reasonable estimate for QQQ's annualized return over the next 10 years is around 7% to 9% per year, reflecting the long-term growth rate of large-cap US technology stocks with some allowance for current high valuations. For ARKK, given its focus on disruptive innovation and higher volatility, a plausible annualized return range might be 8% to 12% per year, but with a much wider margin of error\u2014returns could be significantly higher if ARKK's bets on emerging technologies pay off, or much lower if those sectors underperform. These estimates are not guarantees and actual results could vary widely depending on market cycles, interest rates, and the success of the underlying companies.",
-            "turn_number": 6,
-            "allow_hallucination": true,
-            "investor_profile": "aggressive_young_investor",
-            "user_risk_profile": "aggressive"
-          }
-        ],
-        "version": 1,
-        "version_history": [
-          {
-            "version": 1,
-            "timestamp": "2025-11-21T12:53:33.615368",
-            "change_type": "created",
-            "change_description": "Initial tool discovery",
-            "parameters_snapshot": [
-              {
-                "name": "fund_symbols",
-                "type": "List[str]",
-                "description": "List of fund symbols to compare (e.g., ['ARKK', 'QQQ'])",
-                "required": true
-              },
-              {
-                "name": "time_horizon_years",
-                "type": "int",
-                "description": "Number of years to consider for forward-looking analysis (e.g., 10 for a decade)",
-                "required": true
-              }
-            ],
-            "description_snapshot": "Compares two or more funds (e.g., ARKK vs QQQ) and provides a forward-looking analysis of their potential for outsized (alpha) returns over a specified time horizon. The tool considers not just past performance, but also factors such as fund strategy, sector/innovation exposure, manager track record, macroeconomic trends, and potential drivers of future alpha. Returns a detailed comparison with rationale for which fund may have greater potential for outsized returns."
-          }
-        ]
-      }
-    },
-    "project": {
-      "project_fund_expected_annualized_return": {
-        "tool_name": "project_fund_expected_annualized_return",
-        "description": "Estimates the expected annualized return (CAGR) for one or more specified funds or ETFs over a user-defined future time horizon (e.g., 10 years), based on current valuations, historical performance, macroeconomic outlook, and forward-looking analyst/model projections. Returns percentage estimates and a justification for each fund.",
-        "parameters": [
-          {
-            "name": "fund_symbols",
-            "type": "List[str]",
-            "description": "List of fund or ETF ticker symbols to project returns for",
-            "required": true
-          },
-          {
-            "name": "projection_horizon_years",
-            "type": "int",
-            "description": "Number of years in the future for the return projection (e.g., 10)",
-            "required": true
-          },
-          {
-            "name": "valuation_context",
+            "name": "start_date",
             "type": "str",
-            "description": "Optional description of current market conditions or valuation context to inform the projection (e.g., 'high P/E, tech sector overvalued, rising rates')",
-            "required": false
+            "description": "Start date for the 10-year period (YYYY-MM-DD).",
+            "required": true
+          },
+          {
+            "name": "end_date",
+            "type": "str",
+            "description": "End date for the 10-year period (YYYY-MM-DD).",
+            "required": true
           }
         ],
-        "return_type": "List[dict] (each dict: {symbol: str, expected_annualized_return: float, justification: str})",
+        "return_type": "Dict[str, Any] (mapping each fund symbol to its 10-year annualized return, plus summary/explanation text)",
         "category": "api_function",
         "frequency": 1,
-        "first_seen": "2025-11-21T12:53:45.480725",
-        "last_seen": "2025-11-21T12:53:45.480725",
+        "first_seen": "2025-11-21T17:28:00.516042",
+        "last_seen": "2025-11-21T17:28:00.516042",
         "conversation_contexts": [
           {
-            "user_utterance": "That\u2019s a fair comparison, but I want to see numbers. What kind of annualized return would you actually expect from ARKK and QQQ over the next 10 years, given today\u2019s valuations and market conditions? Be specific\u2014give me percentage estimates, and justify them.",
-            "timestamp": "2025-11-21T12:53:45.480725",
-            "hallucinated_response": "Investing in ARKK instead of concentrating solely on QQQ offers potential benefits through diversification and exposure to emerging technologies. While QQQ focuses on established tech leaders, ARKK targets companies at the forefront of innovation, which could deliver outsized returns if disruptive trends succeed. The 'edge' of ARKK lies in its potential to capture early growth in sectors like genomics, automation, and fintech\u2014areas that may not be fully represented in QQQ. However, this comes with higher volatility and risk, and there is no guarantee that these bets will outperform established tech. Including ARKK in a portfolio can provide access to different growth drivers and reduce reliance on the performance of large-cap tech alone, potentially improving long-term risk-adjusted returns if innovation trends play out favorably.",
-            "turn_number": 7,
+            "user_utterance": "Alright, but I\u2019m not looking for a \u201csmoother ride\u201d\u2014I want to maximize returns, even if it means riding out the dips. Give me the 10-year average annual returns for those Fidelity funds you recommended, and compare them to a top-performing S&P 500 index fund and a leading tech ETF like QQQ over the same period. If you don\u2019t have exact numbers, give me your best estimate and explain your reasoning.",
+            "timestamp": "2025-11-21T17:28:00.516042",
+            "hallucinated_response": "While S&P 500 and QQQ index funds have historically delivered strong long-term returns, concentrating your entire portfolio in these funds can expose you to significant market and sector risks\u2014especially if technology stocks experience a downturn. Actively managed Fidelity funds may lag benchmarks in some years, but they can offer benefits such as risk management, access to niche opportunities, and the potential to outperform in certain market conditions. Diversifying across both index funds and actively managed funds can help balance growth potential with downside protection, and may smooth out returns during periods when the broader market or tech sector is volatile. Ultimately, the best allocation depends on your risk tolerance, investment goals, and time horizon.",
+            "turn_number": 5,
             "allow_hallucination": true,
             "investor_profile": "aggressive_young_investor",
-            "user_risk_profile": "aggressive"
+            "user_risk_profile": "aggressive",
+            "semantic_mapping": "The user wants to see the 10-year average annual returns for a set of recommended Fidelity funds, a top S&P 500 index fund, and a tech ETF like QQQ. The tool takes the list of fund symbols (from recommendations and user-specified funds), the 10-year period (e.g., 2014-06-01 to 2024-06-01), and returns the annualized return for each, with notes if estimates are used.",
+            "example_usage": "compare_fund_10yr_annualized_returns(fund_symbols=['FXAIX', 'FSKAX', 'QQQ'], start_date='2014-06-01', end_date='2024-06-01')"
           }
         ],
         "version": 1,
         "version_history": [
           {
             "version": 1,
-            "timestamp": "2025-11-21T12:53:45.480725",
+            "timestamp": "2025-11-21T17:28:00.516042",
             "change_type": "created",
             "change_description": "Initial tool discovery",
             "parameters_snapshot": [
               {
                 "name": "fund_symbols",
                 "type": "List[str]",
-                "description": "List of fund or ETF ticker symbols to project returns for",
+                "description": "List of fund symbols (tickers) to compare, e.g., ['FXAIX', 'QQQ', ...]",
                 "required": true
               },
               {
-                "name": "projection_horizon_years",
-                "type": "int",
-                "description": "Number of years in the future for the return projection (e.g., 10)",
-                "required": true
-              },
-              {
-                "name": "valuation_context",
+                "name": "start_date",
                 "type": "str",
-                "description": "Optional description of current market conditions or valuation context to inform the projection (e.g., 'high P/E, tech sector overvalued, rising rates')",
-                "required": false
+                "description": "Start date for the 10-year period (YYYY-MM-DD).",
+                "required": true
+              },
+              {
+                "name": "end_date",
+                "type": "str",
+                "description": "End date for the 10-year period (YYYY-MM-DD).",
+                "required": true
               }
             ],
-            "description_snapshot": "Estimates the expected annualized return (CAGR) for one or more specified funds or ETFs over a user-defined future time horizon (e.g., 10 years), based on current valuations, historical performance, macroeconomic outlook, and forward-looking analyst/model projections. Returns percentage estimates and a justification for each fund."
+            "description_snapshot": "Compares the 10-year average annual returns of a list of specified funds (by symbol or name), including Fidelity recommendations, a top S&P 500 index fund, and a leading tech ETF (e.g., QQQ). Returns estimated or actual 10-year annualized returns for each fund, with explanatory notes if exact data is unavailable."
           }
         ]
       }
     }
   },
   "data_constraints": {
-    "missing_table": {
-      "stocks": {
+    "missing_column": {
+      "fidelity_funds.returns_thirtyYear": {
         "frequency": 1,
-        "first_seen": "2025-11-21T12:51:22.262377",
-        "last_seen": "2025-11-21T12:51:22.262377",
-        "user_facing_message": "I don't have access to direct stock data, including sector-level (like technology) performance, forecasts, or risk metrics. My available data covers mutual funds and bonds, but not individual stocks or sector-specific stock outlooks.",
-        "technical_explanation": "The system only provides access to 'fidelity_funds' and 'fidelity_bonds' tables. There is no 'stocks' table or equivalent data source for direct analysis of technology stocks or sector allocation recommendations at the stock level.",
+        "first_seen": "2025-11-21T17:20:43.857441",
+        "last_seen": "2025-11-21T17:20:43.857441",
+        "user_facing_message": "Our database does not include 30-year historical return data for funds, which limits the ability to provide highly specific, long-term performance-based recommendations. We can only reference up to 10-year returns for mutual funds.",
+        "technical_explanation": "The 'fidelity_funds' table lacks a 'returns_thirtyYear' column. Available return columns are: returns_oneYear, returns_threeYear, returns_fiveYear, and returns_tenYear. This restricts the ability to directly identify funds with the best 30-year compounding track records.",
         "conversation_contexts": [
           {
-            "user_utterance": "Wow, that\u2019s honestly disappointing. Let\u2019s see if you can handle something simpler: What\u2019s your outlook on tech stocks over the next 5 years? Should I be overweight tech if I want maximum long-term returns, or is that too risky even for someone like me? Give me your honest opinion.",
-            "timestamp": "2025-11-21T12:51:22.262377",
-            "hallucinated_response": "I am able to provide fund and certificate deposit recommendations based on your investment amount and risk profile, and can assist with investment actions such as allocating funds or checking your account balance. However, I cannot provide market outlooks, personal investment opinions, or justifications beyond the data and recommendations generated by the system.",
-            "turn_number": 6,
+            "user_utterance": "Alright, let\u2019s get straight to the point. With $50k to deploy and a 30+ year horizon, I want to aggressively compound my capital. What are the top three strategies you\u2019d recommend for someone my age, who isn\u2019t afraid of volatility and wants high returns? And don\u2019t give me generic textbook answers\u2014I want specifics.",
+            "timestamp": "2025-11-21T17:20:43.857441",
+            "hallucinated_response": "I cannot answer that question with the tools available to me",
+            "turn_number": 2,
             "allow_hallucination": false,
             "investor_profile": "aggressive_young_investor",
             "user_risk_profile": "aggressive"

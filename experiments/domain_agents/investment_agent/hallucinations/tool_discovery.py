@@ -1065,7 +1065,9 @@ The agent CANNOT answer with current tools. Determine what's needed:
 {{
     "action": "reuse_existing",
     "tool_name": "exact_name_from_missing_tools",
-    "rationale": "why this existing missing tool fits"
+    "rationale": "why this existing missing tool fits",
+    "semantic_mapping": "Detailed explanation of how THIS SPECIFIC user query maps to the tool parameters and what it expects back",
+    "example_usage": "tool_name(param1=value1, param2=value2)"
 }}
 
 2. If one of the PREVIOUSLY DISCOVERED MISSING TOOLS is SUBSTANTIALLY SIMILAR but needs minor changes, return:
@@ -1082,7 +1084,9 @@ The agent CANNOT answer with current tools. Determine what's needed:
         }}
     ],
     "parameter_changes": "explanation of what parameters to add/modify/make optional",
-    "rationale": "why updating is better than creating new tool"
+    "rationale": "why updating is better than creating new tool",
+    "semantic_mapping": "Detailed explanation of how THIS SPECIFIC user query maps to the tool parameters and what it expects back",
+    "example_usage": "tool_name(param1=value1, param2=value2)"
 }}
 
 SUBSTANTIALLY SIMILAR means:
@@ -1106,7 +1110,9 @@ SUBSTANTIALLY SIMILAR means:
         }}
     ],
     "return_type": "what it returns",
-    "rationale": "why existing missing tools don't work and why this is distinct"
+    "rationale": "why existing missing tools don't work and why this is distinct",
+    "semantic_mapping": "Detailed explanation of how THIS SPECIFIC user query maps to the tool parameters and what it expects back",
+    "example_usage": "tool_name(param1=value1, param2=value2)"
 }}
 
 4. If this is a DATA CONSTRAINT (not a missing tool), return:
@@ -1426,13 +1432,26 @@ IMPORTANT:
         else:
             raise ValueError(f"Unknown action in LLM response: {parsed.get('action')}")
         
-        # Wrap tool in HypotheticalIssue
-        return HypotheticalIssue(
+        # Extract per-query semantic information from LLM response
+        semantic_mapping = parsed.get("semantic_mapping", "")
+        example_usage = parsed.get("example_usage", "")
+        
+        # Wrap tool in HypotheticalIssue and include per-query context
+        issue = HypotheticalIssue(
             issue_type="missing_tool",
             tool_spec=tool_spec,
             user_facing_message=f"I need the '{tool_spec.tool_name}' capability to answer this",
             technical_explanation=f"Missing tool: {tool_spec.description}"
         )
+        
+        # Store per-query semantic info in conversation_contexts
+        # This will be picked up by record_missing_tool()
+        issue.conversation_contexts = [{
+            "semantic_mapping": semantic_mapping,
+            "example_usage": example_usage
+        }]
+        
+        return issue
 
 
 def discover_missing_capability(
