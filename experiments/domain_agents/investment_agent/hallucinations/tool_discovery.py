@@ -69,36 +69,11 @@ class HypotheticalTool:
     frequency: int = 0
     first_seen: str = ""
     last_seen: str = ""
-    conversation_contexts: List[Dict] = field(default_factory=list)  # Each context has semantic_mapping and example_usage
+    conversation_contexts: List[Dict] = field(default_factory=list)
     
     # Version history tracking
     version: int = 1
-    version_history: List[Dict] = field(default_factory=list)  # List of version change entries
-
-
-@dataclass
-class HypotheticalIssue:
-    """
-    Represents any capability gap - could be missing tool, missing data, out of scope, etc.
-    This is more general than HypotheticalTool.
-    """
-    issue_type: str  # "missing_tool", "missing_data", "out_of_scope", "ambiguous"
-
-    # For missing_tool
-    tool_spec: Optional[HypotheticalTool] = None
-
-    # For missing_data
-    data_constraint: Optional[str] = None  # e.g., "temporal_constraint", "missing_column"
-    affected_entity: Optional[str] = None  # table/column name
-
-    # For out_of_scope
-    scope_explanation: Optional[str] = None
-
-    # Common fields
-    user_facing_message: str = ""
-    technical_explanation: str = ""
-    frequency: int = 1
-    conversation_contexts: List[Dict] = field(default_factory=list)
+    version_history: List[Dict] = field(default_factory=list)  # List of ToolVersionHistory as dicts
 
 
 @dataclass
@@ -117,16 +92,7 @@ class ToolRegistry:
 
     # What's missing (discovered through hallucinations)
     missing_tools: Dict[str, HypotheticalTool] = field(default_factory=dict)
-
-    # NEW: Data constraints (not tool gaps, but data gaps)
-    data_constraints: Dict = field(default_factory=dict)  # {temporal_constraints: {...}, missing_columns: {...}}
-
-    # NEW: Out of scope queries (neither tool nor data issue)
-    out_of_scope_queries: Dict = field(default_factory=dict)  # {category: {frequency, examples}}
     
-    # NEW: Ambiguous queries (need clarification)
-    ambiguous_requests: Dict = field(default_factory=dict)  # {category: {frequency, examples}}
-
     # Metadata
     registry_version: str = "2.0"  # Bumped for new schema
     last_updated: str = ""
@@ -553,120 +519,55 @@ class ToolRegistry:
         Args:
             tool_spec: The hypothetical tool specification
             context: Context dict with user_utterance, timestamp, etc.
-            is_update: If True, this is an updated version of an existing tool
         """
-        # Add semantic_mapping and example_usage to context if they exist (from new tool creation)
-        if hasattr(tool_spec, '_query_mapping'):
-            context['semantic_mapping'] = tool_spec._query_mapping.get('semantic_mapping', '')
-            context['example_usage'] = tool_spec._query_mapping.get('example_usage', '')
-            delattr(tool_spec, '_query_mapping')  # Remove temporary attribute
-        
         if tool_spec.tool_name in self.missing_tools:
-            # Existing missing tool - increment frequency
-            self.missing_tools[tool_spec.tool_name].frequency += 1
-            self.missing_tools[tool_spec.tool_name].last_seen = context['timestamp']
-            self.missing_tools[tool_spec.tool_name].conversation_contexts.append(context)
-            logger.info(
-                f"Tool '{tool_spec.tool_name}' reused (freq={self.missing_tools[tool_spec.tool_name].frequency})"
-            )
+            if is_update:
+                # Replace with updated version but preserve frequency and contexts
+                existing_freq = self.missing_tools[tool_spec.tool_name].frequency
+                existing_contexts = self.missing_tools[tool_spec.tool_name].conversation_contexts
+                existing_first_seen = self.missing_tools[tool_spec.tool_name].first_seen
+                
+                # Update the tool
+                self.missing_tools[tool_spec.tool_name] = tool_spec
+                self.missing_tools[tool_spec.tool_name].frequency = existing_freq + 1
+                self.missing_tools[tool_spec.tool_name].first_seen = existing_first_seen
+                self.missing_tools[tool_spec.tool_name].last_seen = context['timestamp']
+                self.missing_tools[tool_spec.tool_name].conversation_contexts = existing_contexts + [context]
+                
+                logger.info(
+                    f"Tool '{tool_spec.tool_name}' updated to v{tool_spec.version} "
+                    f"(freq={self.missing_tools[tool_spec.tool_name].frequency})"
+                )
+            else:
+                # Existing missing tool - increment frequency (reuse without changes)
+                self.missing_tools[tool_spec.tool_name].frequency += 1
+                self.missing_tools[tool_spec.tool_name].last_seen = context['timestamp']
+                self.missing_tools[tool_spec.tool_name].conversation_contexts.append(context)
+                logger.info(
+                    f"Tool '{tool_spec.tool_name}' reused (freq={self.missing_tools[tool_spec.tool_name].frequency})"
+                )
         else:
             # New missing tool
             tool_spec.frequency = 1
             tool_spec.first_seen = context['timestamp']
             tool_spec.last_seen = context['timestamp']
             tool_spec.conversation_contexts = [context]
+            tool_spec.version = 1
+            
+            # Add creation entry to version history
+            creation_entry = {
+                "version": 1,
+                "timestamp": context['timestamp'],
+                "change_type": "created",
+                "change_description": "Initial tool discovery",
+                "parameters_snapshot": [asdict(p) for p in tool_spec.parameters],
+                "description_snapshot": tool_spec.description
+            }
+            tool_spec.version_history = [creation_entry]
+            
             self.missing_tools[tool_spec.tool_name] = tool_spec
             logger.info(f"New missing tool discovered: '{tool_spec.tool_name}'")
-
-    def record_data_constraint(self, issue: 'HypotheticalIssue', context: Dict):
-        """
-        Record when a query fails due to data availability constraints.
-
-        Args:
-            issue: HypotheticalIssue with issue_type="missing_data"
-            context: Context dict with user_utterance, timestamp, etc.
-        """
-        if issue.data_constraint == "temporal_constraint":
-            if "temporal_constraints" not in self.data_constraints:
-                self.data_constraints["temporal_constraints"] = {}
-
-            entity = issue.affected_entity or "unknown_table"
-            if entity not in self.data_constraints["temporal_constraints"]:
-                self.data_constraints["temporal_constraints"][entity] = {
-                    "missing_requests": []
-                }
-
-            # Check if similar query already exists
-            existing_temporal_requests = self.data_constraints["temporal_constraints"][entity]["missing_requests"]
-            for temporal_request in existing_temporal_requests:
-                if temporal_request["query"] == context.get("user_utterance"):
-                    temporal_request["frequency"] += 1
-                    logger.info(f"Temporal constraint for {entity} recorded (freq={temporal_request['frequency']})")
-                    return
-
-            # New request
-            self.data_constraints["temporal_constraints"][entity]["missing_requests"].append({
-                "query": context.get("user_utterance", ""),
-                "frequency": 1,
-                "explanation": issue.user_facing_message,
-                "timestamp": context.get("timestamp", "")
-            })
-            logger.info(f"New temporal constraint recorded for {entity}")
-
-        elif issue.data_constraint == "missing_column":
-            if "missing_columns" not in self.data_constraints:
-                self.data_constraints["missing_columns"] = {}
-
-            entity = issue.affected_entity or "unknown_table"
-            if entity not in self.data_constraints["missing_columns"]:
-                self.data_constraints["missing_columns"][entity] = {
-                    "requested_columns": []
-                }
-
-            # Check if this column request already exists
-            column_name = issue.technical_explanation.get("requested_column", "unknown")
-            existing_columns = self.data_constraints["missing_columns"][entity]["requested_columns"]
-
-            for column_request in existing_columns:
-                if column_request["column_name"] == column_name:
-                    column_request["frequency"] += 1
-                    column_request["example_queries"].append(context.get("user_utterance", ""))
-                    logger.info(f"Missing column '{column_name}' in {entity} (freq={column_request['frequency']})")
-                    return
-
-            # New column request
-            self.data_constraints["missing_columns"][entity]["requested_columns"].append({
-                "column_name": column_name,
-                "frequency": 1,
-                "example_queries": [context.get("user_utterance", "")]
-            })
-            logger.info(f"New missing column recorded: '{column_name}' in {entity}")
-
-    def record_out_of_scope(self, issue: 'HypotheticalIssue', context: Dict):
-        """
-        Record when a query is out of scope (not a tool or data issue).
-
-        Args:
-            issue: HypotheticalIssue with issue_type="out_of_scope"
-            context: Context dict with user_utterance, timestamp, etc.
-        """
-        category = issue.scope_explanation or "general_out_of_scope"
-
-        if category not in self.out_of_scope_queries:
-            self.out_of_scope_queries[category] = {
-                "frequency": 0,
-                "examples": []
-            }
-
-        self.out_of_scope_queries[category]["frequency"] += 1
-        if len(self.out_of_scope_queries[category]["examples"]) < 10:  # Keep max 10 examples
-            self.out_of_scope_queries[category]["examples"].append({
-                "query": context.get("user_utterance", ""),
-                "timestamp": context.get("timestamp", "")
-            })
-
-        logger.info(f"Out of scope query recorded: {category} (freq={self.out_of_scope_queries[category]['frequency']})")
-
+    
     def save_to_disk(self, registry_path: Optional[Path] = None):
         """
         Persist registry to disk using atomic write.
@@ -711,47 +612,11 @@ class ToolRegistry:
             'last_updated': self.last_updated,
             'existing_apis': self.existing_apis,
             'existing_kb_tables': self.existing_kb_tables,
-            'missing_tools_by_action': grouped_tools,
-            'data_constraints': self.data_constraints,
-            'out_of_scope_queries': self.out_of_scope_queries,
-            'ambiguous_requests': self.ambiguous_requests
+            'missing_tools': {
+                name: self._tool_to_dict(tool) 
+                for name, tool in self.missing_tools.items()
+            }
         }
-    
-    def _group_tools_by_action(self) -> dict:
-        """Group tools by their primary action for better readability"""
-        from collections import defaultdict
-        
-        groups = defaultdict(dict)
-        
-        for name, tool in self.missing_tools.items():
-            # Extract action from tool name (first word before underscore)
-            # e.g., "explain_allocation" -> "explain", "calculate_returns" -> "calculate"
-            action = self._extract_action(name)
-            groups[action][name] = self._tool_to_dict(tool)
-        
-        # Sort groups by action name and convert to regular dict
-        return dict(sorted(groups.items()))
-    
-    @staticmethod
-    def _extract_action(tool_name: str) -> str:
-        """Extract primary action from tool name"""
-        # Common action verbs (ordered by priority)
-        actions = [
-            'compare', 'explain', 'calculate', 'compute', 'retrieve', 'get',
-            'evaluate', 'assess', 'justify', 'recommend', 'list', 'find',
-            'analyze', 'identify', 'determine', 'generate', 'create', 'build',
-            'validate', 'check', 'verify', 'transform', 'convert', 'format'
-        ]
-        
-        tool_lower = tool_name.lower()
-        
-        # Check if tool starts with any known action
-        for action in actions:
-            if tool_lower.startswith(action):
-                return action
-        
-        # If no known action, put in misc
-        return 'misc'
     
     @staticmethod
     def _tool_to_dict(tool: HypotheticalTool) -> dict:
@@ -772,24 +637,15 @@ class ToolRegistry:
         registry.last_updated = data.get('last_updated', '')
         registry.existing_apis = data.get('existing_apis', {})
         registry.existing_kb_tables = data.get('existing_kb_tables', {})
-
-        # Load tools from grouped format
-        for action_group in data.get('missing_tools_by_action', {}).values():
-            for name, tool_data in action_group.items():
-                tool_data['parameters'] = [
-                    ToolParameter(**p) for p in tool_data['parameters']
-                ]
-                registry.missing_tools[name] = HypotheticalTool(**tool_data)
-
-        # Load new fields with defaults
-        registry.data_constraints = data.get('data_constraints', {
-            "temporal_constraints": {},
-            "missing_columns": {},
-            "missing_tables": {}
-        })
-        registry.out_of_scope_queries = data.get('out_of_scope_queries', {})
-        registry.ambiguous_requests = data.get('ambiguous_requests', {})
-
+        
+        # Reconstruct HypotheticalTool objects
+        for name, tool_data in data.get('missing_tools', {}).items():
+            # Convert parameter dicts to ToolParameter objects
+            tool_data['parameters'] = [
+                ToolParameter(**p) for p in tool_data['parameters']
+            ]
+            registry.missing_tools[name] = HypotheticalTool(**tool_data)
+        
         return registry
     
     def get_priority_tools(self, min_frequency: int = 2) -> List[HypotheticalTool]:
@@ -963,7 +819,7 @@ class ToolAnalyzer:
         # Format missing tools
         missing_text = self._format_missing_tools(registry.missing_tools)
         
-        prompt = f"""You are analyzing a conversational AI agent's tool gaps.
+        prompt = f"""You are analyzing a conversational AI investment agent's tool gaps.
 
 AVAILABLE TOOLS:
 {apis_text}
@@ -973,232 +829,120 @@ MISSING TOOLS (discovered but not implemented):
 {missing_text}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TASK: The agent cannot answer this query with available tools.
-USER QUERY: "{user_utterance}"
+USER QUERY:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-TOOL GRANULARITY PRINCIPLE:
-A tool = ONE specific capability (like a function) that:
-1. Has ONE primary action (compute, explain, compare, justify, retrieve, list, evaluate, transform)
-2. Returns ONE type of output (number, text explanation, comparison, data list, judgment)
-3. Can be parameterized for variations of the SAME task
-
-SIMILARITY MATCHING RULES (CRITICAL):
-When comparing query to existing tools, IGNORE minor wording differences!
-
-THESE ARE THE SAME:
-- "compare X on metrics" = "compare X head-to-head" = "compare X directly"
-- "get data about X" = "retrieve X info" = "fetch X details"
-- "explain why X" = "justify X" = "provide reasoning for X"
-- "key metrics" = "main factors" = "important criteria"
-
-DO NOT create separate tools for:
-- Synonyms in description ("head-to-head" vs "on metrics")
-- Paraphrasing ("data-driven justification" vs "concrete comparison")
-- Different wordings of same request
-
-DECISION FRAMEWORK:
-Step 1: Extract functional signature
-- PRIMARY ACTION: What operation? (compare, explain, calculate, get, etc.)
-- RETURN TYPE: What output format?
-- SUBJECT: What entity?
-- PARAMETERS: What varies?
-
-Step 2: Check EACH existing missing tool
-For EACH tool, ask:
-1. Same PRIMARY ACTION verb? (compare=compare, explain=explain, calculate=calculate)
-2. Same RETURN TYPE structure? (comparison_table=comparison_table, explanation=explanation)
-3. Same SUBJECT entity? (ETFs=ETFs, funds=funds, bonds=bonds)
-4. Same PARAMETERS (ignoring entity names/values)?
-
-IF ALL 4 match -> REUSE existing tool (don't create new!)
-IF 1-3 match but need new optional param -> UPDATE existing
-IF ANY of 1-3 differ -> CREATE new
-
-CONCRETE EXAMPLES:
-Query A: "Compare BOTZ vs AIQ on fees, holdings, performance"
-Query B: "Compare BOTZ vs AIQ head-to-head with numbers"
--> SAME TOOL (both compare ETFs, return comparison, just synonym phrasing)
--> ACTION: reuse_existing
-
-Query A: "Calculate 5-year returns"
-Query B: "Calculate 10-year returns"  
--> SAME TOOL (same action, return, subject - only year value differs)
--> ACTION: reuse_existing
-
-Query A: "Compare fund performance"
-Query B: "Explain why fund performed well"
--> DIFFERENT TOOLS (compare != explain, comparison != explanation)
--> ACTION: create_new
-
-Query A: "Get ETF expense ratios"
-Query B: "Get ETF expense ratios for tech sector"
--> SAME TOOL but needs sector filter
--> ACTION: update_existing (add sector param)
+"{user_utterance}"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-OUTPUT FORMAT:
+TASK:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-BEFORE deciding, check EVERY existing missing tool carefully!
-Don't create duplicates just because of synonym wording!
+The agent CANNOT answer the user's query with the CURRENTLY AVAILABLE TOOLS.
 
-1. REUSE (same action, return, subject, params - just different wording or entity values):
+Determine which missing tool would solve this:
+
+1. If one of the PREVIOUSLY DISCOVERED MISSING TOOLS would work AS-IS, return:
 {{
     "action": "reuse_existing",
-    "tool_name": "exact_tool_name",
-    "reasoning": "why this matches (be specific about action/return/subject match)"
+    "tool_name": "exact_name_from_missing_tools",
+    "rationale": "why this existing missing tool fits"
 }}
 
-2. UPDATE (same action + return + subject, but needs additional optional param):
+2. If one of the PREVIOUSLY DISCOVERED MISSING TOOLS is SUBSTANTIALLY SIMILAR but needs minor changes, return:
 {{
     "action": "update_existing",
-    "tool_name": "tool_to_update",
-    "new_parameters": [{{"name": "param", "type": "type", "description": "desc", "required": false}}],
-    "parameter_changes": "what new capability this adds",
-    "reasoning": "why updating instead of reusing or creating new"
+    "tool_name": "name_of_tool_to_update",
+    "updated_description": "enhanced description (if needed, otherwise copy existing)",
+    "new_parameters": [
+        {{
+            "name": "new_param_name",
+            "type": "python_type",
+            "description": "what this new parameter does",
+            "required": true|false
+        }}
+    ],
+    "parameter_changes": "explanation of what parameters to add/modify/make optional",
+    "rationale": "why updating is better than creating new tool"
 }}
 
-3. CREATE (different action OR return type OR subject):
+SUBSTANTIALLY SIMILAR means:
+- Same core purpose/domain (e.g., both about calculating returns)
+- Overlapping functionality with minor variation (e.g., needs one more filter parameter)
+- Same general workflow but different specifics (e.g., time period differs)
+- Would confuse users if both existed as separate tools
+
+3. If you need to CREATE A NEW missing tool (genuinely different functionality), return:
 {{
     "action": "create_new",
-    "tool_name": "specific_action_name",
-    "description": "one specific thing this does",
+    "tool_name": "descriptive_snake_case_name",
+    "description": "what this tool does",
     "category": "api_function|kb_table_column|new_api",
-    "parameters": [{{"name": "param", "type": "type", "description": "desc", "required": true|false}}],
-    "return_type": "output format",
-    "semantic_mapping_for_this_query": "For THIS query, extract param1 from [where]. Returns [format] to answer [what].",
-    "example_usage_for_this_query": "tool_name(param1=value_from_query)",
-    "reasoning": "why this needs separate tool (which of action/return/subject differs)"
+    "parameters": [
+        {{
+            "name": "param_name",
+            "type": "python_type",
+            "description": "what this means",
+            "required": true
+        }}
+    ],
+    "return_type": "what it returns",
+    "rationale": "why existing missing tools don't work and why this is distinct"
 }}
 
-REMEMBER: Minor description wording changes DO NOT justify separate tools!
-Return valid JSON only."""
+DECISION PRIORITY:
+1. FIRST, check if existing tool works as-is (reuse_existing)
+2. SECOND, check if existing tool can be enhanced (update_existing) 
+3. LAST, create new tool only if functionality is genuinely different
+
+IMPORTANT:
+- Prefer updating over creating when tools are substantially similar
+- Avoid tool proliferation - merge similar functionality
+- Be specific about parameter types (str, float, int, List[str], etc.)
+- Use snake_case for tool and parameter names
+- Return valid JSON only"""
         
         return prompt
     
     @staticmethod
     def _format_existing_apis(apis: Dict[str, Dict]) -> str:
-        """Format existing APIs with FULL semantic context for LLM analysis"""
+        """Format existing APIs for prompt (STUB)"""
         if not apis:
             return "None"
-
+        
         lines = []
-        for api_name, api_info in apis.items():
-            lines.append(f"\n**{api_name}**")
-            lines.append(f"  Signature: {api_info['signature']}")
-            lines.append(f"  Description: {api_info['description']}")
-
-            # Show capabilities - what this API CAN and CANNOT do
-            if "capabilities" in api_info:
-                caps = api_info["capabilities"]
-                if caps.get("can_do"):
-                    lines.append(f"  ✓ CAN DO:")
-                    for cap in caps["can_do"]:
-                        lines.append(f"    • {cap}")
-                if caps.get("cannot_do"):
-                    lines.append(f"  ✗ CANNOT DO:")
-                    for cap in caps["cannot_do"]:
-                        lines.append(f"    • {cap}")
-
-            # Show when to use this API
-            if "when_to_use" in api_info:
-                lines.append(f"  When to use: {api_info['when_to_use']}")
-
-            # Show constraints
-            if "constraints" in api_info and api_info["constraints"]:
-                lines.append(f"  Constraints: {', '.join(api_info['constraints'])}")
-
-            # Show example queries this API handles
-            if "example_queries" in api_info and api_info["example_queries"]:
-                lines.append(f"  Example queries this API can answer:")
-                for query in api_info["example_queries"][:3]:  # Show first 3
-                    lines.append(f"    - \"{query}\"")
-
+        for name, info in apis.items():
+            lines.append(f"- {info['signature']}")
+            lines.append(f"  Description: {info['description']}")
+        
         return "\n".join(lines)
     
     @staticmethod
-    def _format_db_schema(tables: Dict[str, Dict]) -> str:
-        """Format database schema with FULL semantic context for LLM analysis"""
+    def _format_db_schema(tables: Dict[str, List[str]]) -> str:
+        """Format database schema for prompt (STUB)"""
         if not tables:
             return "None"
-
+        
         lines = []
-        for table_name, schema in tables.items():
-            # Handle both old format (list of columns) and new format (dict with metadata)
-            if isinstance(schema, list):
-                # Legacy format - just show columns
-                columns = schema
-                lines.append(f"\n**{table_name}**")
-                lines.append(f"  Columns: {', '.join(columns[:15])}")
-                if len(columns) > 15:
-                    lines.append(f"  ... and {len(columns) - 15} more")
-                continue
-
-            # New format with semantic metadata
-            lines.append(f"\n**{table_name}**")
-
-            # Show columns
-            columns = schema.get("columns", [])
-            lines.append(f"  Columns ({len(columns)} total):")
-            lines.append(f"    {', '.join(columns[:20])}")
-            if len(columns) > 20:
-                lines.append(f"    ... and {len(columns) - 20} more")
-
-            # Show temporal coverage (critical for avoiding false "historical data" tools)
-            if schema.get("temporal_coverage"):
-                temporal_coverage = schema["temporal_coverage"]
-                lines.append(f"  Data available: {temporal_coverage['earliest_year']}-{temporal_coverage['latest_year']}")
-                lines.append(f"     {temporal_coverage['note']}")
-
-            # Show available operations
-            if schema.get("available_operations"):
-                lines.append(f"  Operations supported:")
-                for op in schema["available_operations"]:
-                    lines.append(f"    • {op}")
-
-            # Show semantics - what CAN and CANNOT be answered
-            if schema.get("semantics"):
-                semantics = schema["semantics"]
-                if semantics.get("can_answer"):
-                    lines.append(f"  CAN ANSWER:")
-                    for capability in semantics["can_answer"][:4]:  # Show first 4
-                        lines.append(f"    - {capability}")
-                if semantics.get("cannot_answer"):
-                    lines.append(f"  CANNOT ANSWER:")
-                    for limitation in semantics["cannot_answer"][:4]:  # Show first 4
-                        lines.append(f"    - {limitation}")
-
-            # Show common use cases with SQL examples
-            if schema.get("common_use_cases"):
-                lines.append(f"  Common queries:")
-                for use_case in schema["common_use_cases"][:3]:  # Show first 3
-                    lines.append(f"    • {use_case}")
-
+        for table_name, columns in tables.items():
+            lines.append(f"- {table_name}: {', '.join(columns[:10])}")  # Show first 10 columns
+            if len(columns) > 10:
+                lines.append(f"  ... and {len(columns) - 10} more columns")
+        
         return "\n".join(lines)
     
     @staticmethod
     def _format_missing_tools(missing_tools: Dict[str, HypotheticalTool]) -> str:
-        """Format missing tools for prompt, grouped by action type"""
+        """Format missing tools for prompt"""
         if not missing_tools:
             return "None discovered yet"
         
-        # Group tools by action
-        from collections import defaultdict
-        grouped = defaultdict(list)
-        
-        for name, tool in missing_tools.items():
-            # Extract action from tool name
-            action = name.split('_')[0] if '_' in name else name
-            grouped[action].append((name, tool))
-        
-        # Format by group
         lines = []
-        for action in sorted(grouped.keys()):
-            lines.append(f"\n{action.upper()} TOOLS:")
-            for name, tool in grouped[action]:
-                params = ", ".join([f"{p.name}: {p.type}" for p in tool.parameters])
-                lines.append(f"  - {name}({params}) -> {tool.return_type}")
-                lines.append(f"    Description: {tool.description}")
-                lines.append(f"    Used {tool.frequency} times")
+        for name, tool in missing_tools.items():
+            params = ", ".join([f"{p.name}: {p.type}" for p in tool.parameters])
+            lines.append(f"- {name}({params}) -> {tool.return_type}")
+            lines.append(f"  Description: {tool.description}")
+            lines.append(f"  Used {tool.frequency} times")
         
         return "\n".join(lines)
     
@@ -1288,23 +1032,52 @@ Return valid JSON only."""
             for p in update_request.get("new_parameters", [])
         ])
         
-        prompt = f"""Merge parameters for tool update.
+        prompt = f"""You are merging parameters for a tool that is being updated.
 
-EXISTING: {existing_tool.tool_name}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EXISTING TOOL:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Name: {existing_tool.tool_name}
+Description: {existing_tool.description}
+Parameters:
 {existing_params_text}
+Return Type: {existing_tool.return_type}
 
-NEW PARAMETERS:
-{new_params_text if new_params_text else 'None'}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+UPDATE REQUEST:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+New/Updated Description: {update_request.get('updated_description', 'No change')}
+New Parameters to Add:
+{new_params_text if new_params_text else '  None specified'}
+Reasoning: {update_request.get('parameter_changes', 'Not specified')}
 
-TASK: Merge into unified parameter list.
-- Essential params -> required=true
-- Filters/options -> required=false
-- Deduplicate similar params
-- Return ALL params (existing + new)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TASK:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Return JSON:
+Intelligently merge these parameters into a unified parameter list. Consider:
+
+1. **Core vs Optional Parameters:**
+   - Parameters that are ESSENTIAL to the tool's primary function should be required=true
+   - Parameters that add flexibility or filtering should be required=false
+   - If a parameter was required before and is still core, keep it required
+   - If a new parameter is for specialized use cases, make it optional
+
+2. **Parameter Deduplication:**
+   - If new parameter is essentially the same as existing, keep one version with best description
+   - If parameters overlap in purpose, merge them with a broader type/description
+
+3. **Parameter Enhancement:**
+   - If new parameter adds to existing parameter (e.g., adding filter options), enhance the existing one
+   - Update descriptions to be clearer and more comprehensive
+
+4. **Description Update:**
+   - Merge the descriptions to cover all use cases
+   - Keep it concise but comprehensive
+
+Return JSON in this format:
 {{
-    "merged_description": "brief description",
+    "merged_description": "comprehensive description covering all use cases",
     "merged_parameters": [
         {{
             "name": "parameter_name",
@@ -1313,9 +1086,15 @@ Return JSON:
             "required": true|false
         }}
     ],
-    "change_type": "parameter_added|parameter_modified|description_updated",
-    "change_summary": "what changed"
-}}"""
+    "change_type": "parameter_added|parameter_modified|description_updated|comprehensive_update",
+    "change_summary": "brief summary of what changed and why"
+}}
+
+IMPORTANT:
+- Return ALL parameters (existing + new), not just changes
+- Be thoughtful about required vs optional
+- Avoid parameter bloat - merge similar concepts
+- Return valid JSON only"""
         
         return prompt
     
@@ -1323,116 +1102,55 @@ Return JSON:
         self,
         parsed: dict,
         registry: ToolRegistry
-    ) -> 'HypotheticalIssue':
-        """Process the LLM's response and return HypotheticalIssue"""
-
-        classification = parsed.get("classification", "missing_tool")  # Default to missing_tool for backward compatibility
-
-        if classification == "missing_tool":
-            action = parsed.get("action", "create_new")
-
-            if action == "reuse_existing":
-                # Find and return existing missing tool
-                tool_name = parsed["tool_name"]
-
-                if tool_name not in registry.missing_tools:
-                    raise ValueError(
-                        f"LLM suggested reusing '{tool_name}' but it doesn't exist in missing_tools"
-                    )
-
-                existing_tool = registry.missing_tools[tool_name]
-                logger.info(f"Reusing existing missing tool: {tool_name}")
-
-                return HypotheticalIssue(
-                    issue_type="missing_tool",
-                    tool_spec=existing_tool,
-                    user_facing_message=f"I would need the {tool_name} capability to answer this.",
-                    technical_explanation=parsed.get("rationale", "")
+    ) -> Tuple[HypotheticalTool, bool, bool]:
+        """Process the LLM's response and return tool spec with flags"""
+        
+        if parsed["action"] == "reuse_existing":
+            # Find and return existing missing tool
+            tool_name = parsed["tool_name"]
+            
+            if tool_name not in registry.missing_tools:
+                raise ValueError(
+                    f"LLM suggested reusing '{tool_name}' but it doesn't exist in missing_tools"
                 )
             
-            elif action == "update_existing":
-                # Update an existing missing tool with enhanced parameters
-                tool_name = parsed["tool_name"]
-                
-                if tool_name not in registry.missing_tools:
-                    raise ValueError(
-                        f"LLM suggested updating '{tool_name}' but it doesn't exist in missing_tools"
-                    )
-                
-                existing_tool = registry.missing_tools[tool_name]
-                reasoning = parsed.get("reasoning", "No reasoning provided")
-                logger.debug(f"Update reasoning: {reasoning}")
-                
-                # Use LLM to intelligently merge parameters
-                updated_tool = self._merge_tool_parameters(
-                    existing_tool=existing_tool,
-                    update_request=parsed,
-                    registry=registry
+            existing_tool = registry.missing_tools[tool_name]
+            logger.info(f"Reusing existing missing tool: {tool_name}")
+            return existing_tool, False, False  # Not new, not updated
+        
+        elif parsed["action"] == "update_existing":
+            # Update an existing missing tool with enhanced parameters
+            tool_name = parsed["tool_name"]
+            
+            if tool_name not in registry.missing_tools:
+                raise ValueError(
+                    f"LLM suggested updating '{tool_name}' but it doesn't exist in missing_tools"
                 )
-                
-                logger.info(f"Updated existing missing tool: {tool_name} (v{updated_tool.version})")
-                
-                return HypotheticalIssue(
-                    issue_type="missing_tool",
-                    tool_spec=updated_tool,
-                    user_facing_message=f"I would need the {tool_name} capability (updated to v{updated_tool.version}) to answer this.",
-                    technical_explanation=parsed.get("reasoning", "")
-                )
-
-            elif action == "create_new":
-                # Create new HypotheticalTool
-                reasoning = parsed.get("reasoning", "No reasoning provided")
-                logger.debug(f"Create new reasoning: {reasoning}")
-                
-                new_tool = HypotheticalTool(
-                    tool_name=parsed["tool_name"],
-                    description=parsed["description"],
-                    parameters=[ToolParameter(**p) for p in parsed["parameters"]],
-                    return_type=parsed["return_type"],
-                    category=parsed["category"]
-                )
-                
-                # Store semantic_mapping and example_usage for THIS query (to be added to context later)
-                new_tool._query_mapping = {
-                    "semantic_mapping": parsed.get("semantic_mapping_for_this_query", ""),
-                    "example_usage": parsed.get("example_usage_for_this_query", "")
-                }
-                
-                logger.info(f"Creating new missing tool: {new_tool.tool_name}")
-
-                return HypotheticalIssue(
-                    issue_type="missing_tool",
-                    tool_spec=new_tool,
-                    user_facing_message=f"I would need the {new_tool.tool_name} capability to answer this.",
-                    technical_explanation=parsed.get("reasoning", "")
-                )
-
-        elif classification == "out_of_scope":
-            category = parsed.get("category", "general_out_of_scope")
-            explanation = parsed.get("explanation", "This query is outside my capabilities.")
-            user_message = parsed.get("user_message", "I cannot help with this request.")
-
-            logger.info(f"Query classified as out of scope: {category}")
-
-            return HypotheticalIssue(
-                issue_type="out_of_scope",
-                scope_explanation=category,
-                user_facing_message=user_message,
-                technical_explanation=explanation
+            
+            existing_tool = registry.missing_tools[tool_name]
+            
+            # Use LLM to intelligently merge parameters
+            updated_tool = self._merge_tool_parameters(
+                existing_tool=existing_tool,
+                update_request=parsed,
+                registry=registry
             )
-
-        elif classification == "ambiguous":
-            clarification = parsed.get("clarification_needed", "The query is unclear.")
-            user_message = parsed.get("user_message", "Could you please clarify your question?")
-
-            logger.info(f"Query classified as ambiguous: {clarification}")
-
-            return HypotheticalIssue(
-                issue_type="ambiguous",
-                user_facing_message=user_message,
-                technical_explanation=clarification
+            
+            logger.info(f"Updated existing missing tool: {tool_name} (v{updated_tool.version})")
+            return updated_tool, False, True  # Not new, but is updated
+        
+        elif parsed["action"] == "create_new":
+            # Create new HypotheticalTool
+            new_tool = HypotheticalTool(
+                tool_name=parsed["tool_name"],
+                description=parsed["description"],
+                parameters=[ToolParameter(**p) for p in parsed["parameters"]],
+                return_type=parsed["return_type"],
+                category=parsed["category"]
             )
-
+            logger.info(f"Creating new missing tool: {new_tool.tool_name}")
+            return new_tool, True, False  # Is new, not updated
+        
         else:
             raise ValueError(f"Unknown classification in LLM response: {classification}")
 
