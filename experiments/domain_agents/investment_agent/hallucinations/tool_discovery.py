@@ -113,7 +113,7 @@ class ToolRegistry:
 
     # What we have
     existing_apis: Dict[str, Dict] = field(default_factory=dict)
-    existing_kb_tables: Dict[str, List[str]] = field(default_factory=dict)
+    existing_kb_tables: Dict[str, Dict] = field(default_factory=dict)  # Table name -> metadata dict with 'columns' key
 
     # What's missing (discovered through hallucinations)
     missing_tools: Dict[str, HypotheticalTool] = field(default_factory=dict)
@@ -946,16 +946,8 @@ class ToolAnalyzer:
         Raises:
             Exception: If LLM API call fails or response parsing fails
         """
-        # Phase 1 already found data constraint
-        if data_availability_result and data_availability_result.issue_type != "no_issue":
-            return HypotheticalIssue(
-                issue_type="missing_data",
-                data_constraint=data_availability_result.issue_type,
-                affected_entity=data_availability_result.technical_details.get("table", "unknown"),
-                user_facing_message=data_availability_result.explanation,
-                technical_explanation=data_availability_result.technical_details
-            )
-
+        # Phase 1 results are passed as CONTEXT to the LLM, not as an automatic decision
+        # The LLM will decide if it's truly a data constraint or if a new tool is needed
         prompt = self._build_prompt(user_utterance, registry, data_availability_result)
 
         messages = [
@@ -1002,6 +994,27 @@ class ToolAnalyzer:
         # Format missing tools
         missing_text = self._format_missing_tools(registry.missing_tools)
         
+        # Build Phase 1 context section if available (MUST be before prompt string)
+        phase1_context = ""
+        if data_availability_result and hasattr(data_availability_result, 'issue_type'):
+            if data_availability_result.issue_type != "no_issue":
+                phase1_context = f"""
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 1 DATA AVAILABILITY CHECK (CONTEXT):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The data availability checker found a potential issue:
+- Issue Type: {data_availability_result.issue_type}
+- Explanation: {getattr(data_availability_result, 'explanation', 'N/A')}
+- Technical Details: {getattr(data_availability_result, 'technical_details', 'N/A')}
+
+IMPORTANT: This Phase 1 result is CONTEXT ONLY. You must independently determine if:
+1. This is truly a DATA CONSTRAINT (missing records/columns/tables), OR
+2. This is actually a MISSING TOOL (need a new capability/function)
+
+Don't blindly trust Phase 1 - use your judgment!
+"""
+        
         prompt = f"""You are analyzing a conversational AI agent's capability gaps.
 
 AVAILABLE TOOLS:
@@ -1016,6 +1029,8 @@ USER QUERY:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 "{user_utterance}"
+
+{phase1_context}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TOOL GRANULARITY PRINCIPLE (DOMAIN-AGNOSTIC):
@@ -1094,10 +1109,27 @@ SUBSTANTIALLY SIMILAR means:
     "rationale": "why existing missing tools don't work and why this is distinct"
 }}
 
+4. If this is a DATA CONSTRAINT (not a missing tool), return:
+{{
+    "action": "missing_data",
+    "data_constraint_type": "missing_column|missing_table|temporal_constraint|missing_value",
+    "affected_entity": "table/column name",
+    "user_message": "user-friendly explanation",
+    "technical_details": "technical explanation of the constraint",
+    "rationale": "why this is a data issue, not a tool issue"
+}}
+
+DATA CONSTRAINT vs MISSING TOOL:
+- **Data Constraint**: Data exists in schema but specific records/timeframes are missing
+  Examples: "Show 1990s data" but DB only has 2015+, "Get expense_ratio for bonds" but bonds table doesn't have that column
+- **Missing Tool**: Need NEW CAPABILITY/FUNCTION that doesn't exist
+  Examples: "Calculate required monthly contribution", "Optimize portfolio allocation", "Compare risk-adjusted returns"
+
 DECISION PRIORITY:
-1. FIRST, check if existing tool works as-is (reuse_existing)
-2. SECOND, check if existing tool can be enhanced (update_existing) 
-3. LAST, create new tool only if functionality is genuinely different
+1. FIRST, check if it's a data constraint (missing records, columns, tables)
+2. SECOND, check if existing tool works as-is (reuse_existing)
+3. THIRD, check if existing tool can be enhanced (update_existing) 
+4. LAST, create new tool only if functionality is genuinely different
 
 IMPORTANT:
 - Prefer updating over creating when tools are substantially similar
@@ -1122,16 +1154,25 @@ IMPORTANT:
         return "\n".join(lines)
     
     @staticmethod
-    def _format_db_schema(tables: Dict[str, List[str]]) -> str:
-        """Format database schema for prompt (STUB)"""
+    def _format_db_schema(tables: Dict[str, Dict]) -> str:
+        """Format database schema for prompt
+        
+        Args:
+            tables: Dict mapping table names to table metadata dicts with 'columns' key
+        """
         if not tables:
             return "None"
         
         lines = []
-        for table_name, columns in tables.items():
-            lines.append(f"- {table_name}: {', '.join(columns[:10])}")  # Show first 10 columns
-            if len(columns) > 10:
-                lines.append(f"  ... and {len(columns) - 10} more columns")
+        for table_name, table_info in tables.items():
+            columns = table_info.get("columns", [])
+            
+            if columns:
+                lines.append(f"- {table_name}: {', '.join(columns[:10])}")  # Show first 10 columns
+                if len(columns) > 10:
+                    lines.append(f"  ... and {len(columns) - 10} more columns")
+            else:
+                lines.append(f"- {table_name}: (no columns defined)")
         
         return "\n".join(lines)
     
@@ -1308,6 +1349,16 @@ IMPORTANT:
         registry: ToolRegistry
     ) -> HypotheticalIssue:
         """Process the LLM's response and return HypotheticalIssue"""
+        
+        # Handle missing_data classification (LLM determined it's a data constraint, not a tool gap)
+        if parsed.get("action") == "missing_data":
+            return HypotheticalIssue(
+                issue_type="missing_data",
+                data_constraint=parsed.get("data_constraint_type", "unknown"),
+                affected_entity=parsed.get("affected_entity", "unknown"),
+                user_facing_message=parsed.get("user_message", "Data not available"),
+                technical_explanation=parsed.get("technical_details", "")
+            )
         
         # Handle out_of_scope classification
         if parsed.get("action") == "out_of_scope":

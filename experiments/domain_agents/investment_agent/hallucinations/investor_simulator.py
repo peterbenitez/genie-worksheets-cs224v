@@ -118,7 +118,13 @@ class InvestorSimulator:
                 return "DONE - Thank you for your help."
             raise
 
-        user_message = response.choices[0].message.content.strip()
+        # Handle case where content filter returns None content instead of exception
+        content = response.choices[0].message.content
+        if content is None:
+            print("⚠️  Content filter returned None, ending conversation politely")
+            return "DONE - Thank you for your help."
+        
+        user_message = content.strip()
         self._update_conversation_history(user_message, agent_response)
         
         return user_message
