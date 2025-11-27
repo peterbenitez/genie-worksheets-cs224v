@@ -1083,7 +1083,7 @@ The agent CANNOT answer with current tools. Determine what's needed:
             "required": true|false
         }}
     ],
-    "parameter_changes": "explanation of what parameters to add/modify/make optional",
+    "parameter_changes": "explanation of what parameters to add/modify/make optional (prefer making existing params more flexible over adding many new ones)",
     "rationale": "why updating is better than creating new tool",
     "semantic_mapping": "Detailed explanation of how THIS SPECIFIC user query maps to the tool parameters and what it expects back",
     "example_usage": "tool_name(param1=value1, param2=value2)"
@@ -1098,8 +1098,8 @@ SUBSTANTIALLY SIMILAR means:
 3. If you need to CREATE A NEW missing tool (genuinely different functionality), return:
 {{
     "action": "create_new",
-    "tool_name": "descriptive_snake_case_name",
-    "description": "what this tool does",
+    "tool_name": "action_verb_subject (generic, parameterizable, avoid specific values/timeframes)",
+    "description": "what this tool does (describe generically, not tied to specific query details)",
     "category": "api_function|kb_table_column|new_api",
     "parameters": [
         {{
@@ -1109,7 +1109,7 @@ SUBSTANTIALLY SIMILAR means:
             "required": true
         }}
     ],
-    "return_type": "what it returns",
+    "return_type": "what it returns (include both python type and semantic meaning)",
     "rationale": "why existing missing tools don't work and why this is distinct",
     "semantic_mapping": "Detailed explanation of how THIS SPECIFIC user query maps to the tool parameters and what it expects back",
     "example_usage": "tool_name(param1=value1, param2=value2)"
@@ -1141,6 +1141,7 @@ IMPORTANT:
 - Prefer updating over creating when tools are substantially similar
 - Avoid tool proliferation - merge similar functionality
 - Be specific about parameter types (str, float, int, List[str], etc.)
+- Use parameters for variations (time periods, entity types, metrics) not separate tools
 - Use snake_case for tool and parameter names
 - Return valid JSON only"""
         
@@ -1337,7 +1338,7 @@ Return JSON in this format:
             "required": true|false
         }}
     ],
-    "change_type": "parameter_added|parameter_modified|description_updated|comprehensive_update",
+    "change_type": "parameter_added|parameter_modified|description_updated|parameters_merged",
     "change_summary": "brief summary of what changed and why"
 }}
 
