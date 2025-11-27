@@ -378,9 +378,9 @@ Tools should be MERGED if ALL of the following are true:
 4. Differences are only in parameter values, not fundamental functionality
 
 IGNORE these differences when merging:
-- Entity subtypes (fund vs portfolio vs bond → all "investments" or "entities")
-- Time periods (10yr vs 5yr → parameterize with dates)
-- Specific metrics (returns vs yields → parameterize with metrics list)
+- Entity subtypes (fund vs portfolio vs bond -> all "investments" or "entities")
+- Time periods (10yr vs 5yr -> parameterize with dates)
+- Specific metrics (returns vs yields -> parameterize with metrics list)
 - Specific amounts or names in descriptions
 
 AVOID merging if:
