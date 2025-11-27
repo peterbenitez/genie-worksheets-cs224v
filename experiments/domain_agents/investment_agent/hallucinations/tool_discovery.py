@@ -36,6 +36,11 @@ from dotenv import load_dotenv
 from loguru import logger
 from openai import AzureOpenAI
 
+try:
+    from .schema_parser import parse_table_schema
+except ImportError:
+    from schema_parser import parse_table_schema
+
 
 # Load environment variables
 ENV_PATH = Path(__file__).parent.parent.parent.parent.parent / ".env"
@@ -159,388 +164,47 @@ class ToolRegistry:
         
         return registry
     
-    def _initialize_existing_tools(self):
-        """
-        Populate existing_apis and existing_kb_tables from actual agent tools.
-        
-        These are the GenieWorksheets the investment agent has access to.
-        """
-        # GenieWorksheets (agent's available worksheets/forms) with semantic metadata
+    def _initialize_existing_tools(self, schema_path: Path = None):
+        """Populate existing_apis and existing_kb_tables."""
+        if schema_path is None:
+            schema_path = Path(__file__).parent.parent / "table_schema.txt"
+
+        parsed_schema = parse_table_schema(schema_path)
+        self.existing_kb_tables = {
+            table_name: {"columns": table_info["columns"]}
+            for table_name, table_info in parsed_schema.items()
+        }
+
+        logger.info(f"Loaded {len(self.existing_kb_tables)} tables from table_schema.txt")
+        self._initialize_existing_apis()
+
+    def _initialize_existing_apis(self):
+        """Initialize existing API definitions."""
         self.existing_apis = {
             "UserProfile": {
                 "description": "User profile with ID and risk profile",
                 "signature": "UserProfile(user_id: str, risk_profile: str)",
-                "returns": {
-                    "type": "Dict",
-                    "fields": ["user_id", "risk_profile", "age", "goals"],
-                    "description": "User demographic and investment preferences"
-                },
-                "capabilities": {
-                    "can_do": [
-                        "Get user's risk tolerance (conservative, moderate, aggressive)",
-                        "Retrieve user age and investment goals",
-                        "Access user preferences"
-                    ],
-                    "cannot_do": [
-                        "Calculate or modify risk profiles",
-                        "Provide investment recommendations",
-                        "Access account balances or holdings"
-                    ]
-                },
-                "data_dependencies": [],
-                "when_to_use": "When you need user preferences before making recommendations",
-                "constraints": [
-                    "Read-only - cannot modify user profile",
-                    "Requires valid user_id"
-                ],
-                "example_queries": [
-                    "What's my risk profile?",
-                    "What are my investment goals?",
-                    "Am I conservative or aggressive?"
-                ]
             },
             "GetRecommendation": {
                 "description": "Get investment recommendations based on risk profile",
                 "signature": "GetRecommendation(value_to_invest: float)",
-                "returns": {
-                    "type": "Dict",
-                    "fields": ["recommended_funds", "allocation_percentages", "risk_level", "rationale"],
-                    "description": "Investment recommendations with suggested allocation"
-                },
-                "capabilities": {
-                    "can_do": [
-                        "Suggest funds based on user's risk profile",
-                        "Provide allocation percentages across multiple funds",
-                        "Match investment goals to appropriate products",
-                        "Recommend diversified portfolio"
-                    ],
-                    "cannot_do": [
-                        "Calculate required monthly/annual contributions",
-                        "Project future returns or values",
-                        "Perform portfolio optimization calculations",
-                        "Provide tax optimization advice",
-                        "Calculate compound interest or time-value of money"
-                    ]
-                },
-                "data_dependencies": ["UserProfile", "fidelity_funds DB"],
-                "when_to_use": "When user needs product recommendations or allocation advice for a specific investment amount",
-                "constraints": [
-                    "Requires UserProfile to be set first",
-                    "Only recommends from funds available in fidelity_funds DB",
-                    "Does not perform mathematical projections or calculations",
-                    "Recommendations are static, not optimized dynamically"
-                ],
-                "example_queries": [
-                    "What funds should I invest in?",
-                    "Recommend an aggressive portfolio",
-                    "How should I allocate $10,000?",
-                    "What's a good diversified investment?"
-                ]
             },
             "GetAccountBalance": {
                 "description": "Get the user's current account balance",
                 "signature": "GetAccountBalance()",
-                "returns": {
-                    "type": "float",
-                    "description": "Current account balance in dollars"
-                },
-                "capabilities": {
-                    "can_do": [
-                        "Retrieve current account balance",
-                        "Check available funds for investment"
-                    ],
-                    "cannot_do": [
-                        "Show historical balance changes",
-                        "Calculate net worth or total assets",
-                        "Access external account balances",
-                        "Show pending transactions"
-                    ]
-                },
-                "data_dependencies": [],
-                "when_to_use": "When user asks about current balance or available funds",
-                "constraints": [
-                    "Read-only",
-                    "Shows only this account, not total assets"
-                ],
-                "example_queries": [
-                    "What's my account balance?",
-                    "How much money do I have?",
-                    "What funds are available to invest?"
-                ]
             },
             "UsersInvestmentPortfolio": {
                 "description": "Get user's current investment holdings",
                 "signature": "UsersInvestmentPortfolio()",
-                "returns": {
-                    "type": "List[Dict]",
-                    "fields": ["symbol", "shares", "current_value", "cost_basis"],
-                    "description": "List of current investment holdings"
-                },
-                "capabilities": {
-                    "can_do": [
-                        "Show current holdings with symbols and quantities",
-                        "Display current market value of holdings",
-                        "List all invested funds and bonds"
-                    ],
-                    "cannot_do": [
-                        "Calculate portfolio performance or returns",
-                        "Show historical holdings",
-                        "Analyze portfolio risk or diversification",
-                        "Suggest rebalancing actions",
-                        "Calculate gains/losses"
-                    ]
-                },
-                "data_dependencies": [],
-                "when_to_use": "When user asks about current holdings or portfolio composition",
-                "constraints": [
-                    "Read-only",
-                    "Shows snapshot, not historical data"
-                ],
-                "example_queries": [
-                    "What do I currently own?",
-                    "Show my portfolio",
-                    "What funds am I invested in?",
-                    "What are my holdings?"
-                ]
             },
             "CertificateDepositInvestment": {
                 "description": "Process a certificate deposit (CD/bond) investment transaction",
-                "signature": "CertificateDepositInvestment(certificate_allocation: CertificateDepositAllocation, confirm: bool)",
-                "returns": {
-                    "type": "Dict",
-                    "fields": ["status", "transaction_id", "confirmation"],
-                    "description": "Transaction result"
-                },
-                "capabilities": {
-                    "can_do": [
-                        "Execute bond/CD purchase",
-                        "Process investment transaction",
-                        "Confirm or preview transaction"
-                    ],
-                    "cannot_do": [
-                        "Recommend which bonds to buy",
-                        "Calculate optimal bond allocation",
-                        "Analyze bond risk or yields"
-                    ]
-                },
-                "data_dependencies": ["CertificateDepositAllocation"],
-                "when_to_use": "When user wants to execute a bond/CD investment (not for recommendations)",
-                "constraints": [
-                    "Requires explicit confirmation",
-                    "Execution only, no analysis or recommendations"
-                ],
-                "example_queries": [
-                    "Buy this bond",
-                    "Invest in this CD",
-                    "Execute bond purchase"
-                ]
+                "signature": "CertificateDepositInvestment(certificate_allocation, confirm: bool)",
             },
             "FundInvestment": {
                 "description": "Process a mutual fund investment transaction",
-                "signature": "FundInvestment(fund_allocations: FundAllocation, confirm: bool)",
-                "returns": {
-                    "type": "Dict",
-                    "fields": ["status", "transaction_id", "confirmation"],
-                    "description": "Transaction result"
-                },
-                "capabilities": {
-                    "can_do": [
-                        "Execute fund purchase",
-                        "Process investment transaction",
-                        "Confirm or preview transaction"
-                    ],
-                    "cannot_do": [
-                        "Recommend which funds to buy",
-                        "Calculate optimal fund allocation",
-                        "Analyze fund risk or returns"
-                    ]
-                },
-                "data_dependencies": ["FundAllocation"],
-                "when_to_use": "When user wants to execute a fund investment (not for recommendations)",
-                "constraints": [
-                    "Requires explicit confirmation",
-                    "Execution only, no analysis or recommendations"
-                ],
-                "example_queries": [
-                    "Buy this fund",
-                    "Invest in FXAIX",
-                    "Execute fund purchase"
-                ]
+                "signature": "FundInvestment(fund_allocations, confirm: bool)",
             },
-            "CertificateDepositAllocation": {
-                "description": "Allocation details for certificate deposit investment",
-                "signature": "CertificateDepositAllocation(fund_to_invest_in: CertificateDeposit, investment_amount: float)",
-                "returns": {
-                    "type": "Dict",
-                    "description": "Allocation specification for CD/bond"
-                },
-                "capabilities": {
-                    "can_do": [
-                        "Specify bond/CD and investment amount"
-                    ],
-                    "cannot_do": [
-                        "Recommend bonds",
-                        "Calculate allocation percentages"
-                    ]
-                },
-                "data_dependencies": [],
-                "when_to_use": "When constructing CD/bond investment parameters",
-                "constraints": ["Data structure only, not an action"],
-                "example_queries": []
-            },
-            "FundAllocation": {
-                "description": "Allocation details for fund investment",
-                "signature": "FundAllocation(fund_to_invest_in: Fund, investment_amount: float)",
-                "returns": {
-                    "type": "Dict",
-                    "description": "Allocation specification for fund"
-                },
-                "capabilities": {
-                    "can_do": [
-                        "Specify fund and investment amount"
-                    ],
-                    "cannot_do": [
-                        "Recommend funds",
-                        "Calculate allocation percentages"
-                    ]
-                },
-                "data_dependencies": [],
-                "when_to_use": "When constructing fund investment parameters",
-                "constraints": ["Data structure only, not an action"],
-                "example_queries": []
-            }
-        }
-        
-        # Database tables with structured schemas and semantic metadata
-        self.existing_kb_tables = {
-            "fidelity_funds": {
-                "columns": [
-                    "id", "symbol", "name", "summary", "inceptionDate", "expenseRatio",
-                    "assets", "updated", "address_line1", "address_line2", "address_line3",
-                    "price_nav", "price_currency", "price_fiftyTwoWeek_low",
-                    "price_fiftyTwoWeek_high", "price_fiftyTwoWeek_changePct",
-                    "yields_distribution", "yields_dividendRate",
-                    "returns_oneYear", "returns_threeYear", "returns_fiveYear", "returns_tenYear",
-                    "returns_calendar_2015", "returns_calendar_2016", "returns_calendar_2017",
-                    "returns_calendar_2018", "returns_calendar_2019", "returns_calendar_2020",
-                    "returns_calendar_2021", "returns_calendar_2022", "returns_calendar_2023",
-                    "returns_calendar_2024",
-                    "ratings_morningstarOverall", "ratings_morningstarRisk", "ratings_beta3Year"
-                ],
-                "column_groups": {
-                    "identifiers": ["id", "symbol", "name"],
-                    "performance": ["returns_oneYear", "returns_threeYear", "returns_fiveYear", "returns_tenYear"],
-                    "calendar_returns": ["returns_calendar_2015", "returns_calendar_2016", "returns_calendar_2017",
-                                        "returns_calendar_2018", "returns_calendar_2019", "returns_calendar_2020",
-                                        "returns_calendar_2021", "returns_calendar_2022", "returns_calendar_2023",
-                                        "returns_calendar_2024"],
-                    "risk_ratings": ["ratings_morningstarOverall", "ratings_morningstarRisk", "ratings_beta3Year"],
-                    "pricing": ["price_nav", "price_fiftyTwoWeek_low", "price_fiftyTwoWeek_high"],
-                    "costs": ["expenseRatio"],
-                    "yields": ["yields_distribution", "yields_dividendRate"]
-                },
-                "temporal_coverage": {
-                    "earliest_year": 2015,
-                    "latest_year": 2024,
-                    "note": "Calendar year returns available from 2015-2024 only",
-                    "missing_before": "No historical data before 2015",
-                    "missing_after": "Future data not available"
-                },
-                "available_operations": [
-                    "SELECT with WHERE clauses (filter funds)",
-                    "Filter by risk rating (ratings_morningstarRisk: conservative/moderate/aggressive)",
-                    "Sort by performance metrics (returns_*, expenseRatio)",
-                    "Filter by expense ratio or other costs",
-                    "Query specific calendar year returns (2015-2024)",
-                    "Compare multiple funds"
-                ],
-                "semantics": {
-                    "can_answer": [
-                        "Find funds matching specific risk profile (conservative/moderate/aggressive)",
-                        "Get historical returns for specific years between 2015-2024",
-                        "Filter by expense ratio, ratings, or yields",
-                        "Compare fund performance across different time periods",
-                        "Find low-cost or high-yield funds",
-                        "Query fund details like symbol, name, summary",
-                        "Sort funds by 1-year, 3-year, 5-year, or 10-year returns"
-                    ],
-                    "cannot_answer": [
-                        "Historical data before 2015 (e.g., 1990s, 2000s data)",
-                        "Future projections or predictions",
-                        "Calculate required contributions to reach goals",
-                        "Perform portfolio optimization (modern portfolio theory)",
-                        "Calculate compound interest or time-value of money",
-                        "Tax implications or tax-advantaged strategies",
-                        "Real-time price updates (data may be delayed)",
-                        "Fund holdings or underlying securities details",
-                        "Expense ratios for bonds (only available for funds)"
-                    ]
-                },
-                "common_use_cases": [
-                    "Query: 'Find aggressive funds' -> WHERE ratings_morningstarRisk = 'high' or 'aggressive'",
-                    "Query: 'Best performing funds in 2023' -> ORDER BY returns_calendar_2023 DESC LIMIT 10",
-                    "Query: 'Low expense ratio funds' -> WHERE expenseRatio < 0.5",
-                    "Query: 'Funds with high 5-year returns' -> WHERE returns_fiveYear > 10.0",
-                    "Query: 'Compare FXAIX vs VTSAX' -> WHERE symbol IN ('FXAIX', 'VTSAX')"
-                ],
-                "data_quality_notes": [
-                    "Returns are percentages (e.g., 10.5 means 10.5%)",
-                    "Some funds may have NULL values for older calendar years if inception was recent",
-                    "expense_ratio is annual fee as percentage of assets"
-                ]
-            },
-            "fidelity_bonds": {
-                "columns": [
-                    "Description", "Coupon", "Coupon Frequency", "Maturity Date",
-                    "Moody's Rating", "S&P Rating", "Expected Price", "Expected Yield",
-                    "Call Protected", "Offering Period", "Settlement Date", "Attributes"
-                ],
-                "column_groups": {
-                    "identifiers": ["Description"],
-                    "pricing": ["Expected Price", "Expected Yield"],
-                    "ratings": ["Moody's Rating", "S&P Rating"],
-                    "terms": ["Coupon", "Coupon Frequency", "Maturity Date"],
-                    "features": ["Call Protected", "Attributes"]
-                },
-                "temporal_coverage": None,  # No temporal constraints for bonds
-                "available_operations": [
-                    "SELECT with WHERE clauses (filter bonds)",
-                    "Filter by credit rating (Moody's, S&P)",
-                    "Sort by yield or price",
-                    "Filter by maturity date",
-                    "Query bond details"
-                ],
-                "semantics": {
-                    "can_answer": [
-                        "Find bonds by credit rating (Moody's or S&P)",
-                        "Filter by expected yield or price",
-                        "Query bonds with specific maturity dates",
-                        "Find call-protected bonds",
-                        "Filter by coupon rate or frequency",
-                        "List available bonds with their characteristics"
-                    ],
-                    "cannot_answer": [
-                        "Expense ratios for bonds (bonds don't have expense ratios - that's a fund concept)",
-                        "Historical bond performance or returns",
-                        "Calculate bond yield-to-maturity or duration",
-                        "Recommend optimal bond allocation",
-                        "Tax implications of bond investments",
-                        "Compare bond risk vs bond funds"
-                    ]
-                },
-                "common_use_cases": [
-                    "Query: 'High-rated bonds' -> WHERE \"Moody's Rating\" IN ('Aaa', 'Aa1', 'Aa2')",
-                    "Query: 'Bonds with yield > 5%' -> WHERE \"Expected Yield\" > 5.0",
-                    "Query: 'Short-term bonds' -> WHERE \"Maturity Date\" < '2026-01-01'",
-                    "Query: 'Investment grade bonds' -> WHERE \"S&P Rating\" IN ('AAA', 'AA', 'A', 'BBB')"
-                ],
-                "data_quality_notes": [
-                    "Expected Yield is annualized percentage",
-                    "Ratings may be NULL if bond is unrated",
-                    "Call Protected indicates if bond can be called early by issuer",
-                    "NO expense_ratio column - bonds don't have expense ratios"
-                ]
-            }
         }
     
     def record_missing_tool(self, tool_spec: HypotheticalTool, context: Dict):
