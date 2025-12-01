@@ -50,6 +50,7 @@ load_dotenv(ENV_PATH)
 DEFAULT_MODEL = "gpt-4.1"
 DEFAULT_TEMPERATURE = 0.0  # Low temperature for consistent tool generation
 REGISTRY_FILENAME = "tool_registry.json"
+MAX_TOOLS = 5  # Hard limit - forces generalization over proliferation
 
 
 @dataclass
@@ -697,7 +698,18 @@ USER QUERY:
 {phase1_context}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TOOL GRANULARITY PRINCIPLE (DOMAIN-AGNOSTIC):
+TOOL LIMIT (MAX {MAX_TOOLS}):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+AT MOST {MAX_TOOLS} tools allowed. Current: {len(registry.missing_tools)}/{MAX_TOOLS}
+
+At limit? MUST reuse/update existing - NEVER create new.
+Prefer GENERAL parameterized tools:
+- explain_concept(concept: str) NOT explain_bond_risk, explain_fund_types
+- compare_investments(items: List[str], metric: str) NOT compare_etfs, compare_bonds
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOOL GRANULARITY PRINCIPLE:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 A tool = ONE specific capability (like a function):
@@ -1084,15 +1096,21 @@ IMPORTANT:
             logger.info(f"Updated existing missing tool: {tool_name} (v{tool_spec.version})")
         
         elif parsed["action"] == "create_new":
-            # Create new HypotheticalTool
-            tool_spec = HypotheticalTool(
-                tool_name=parsed["tool_name"],
-                description=parsed["description"],
-                parameters=[ToolParameter(**p) for p in parsed["parameters"]],
-                return_type=parsed["return_type"],
-                category=parsed["category"]
-            )
-            logger.info(f"Creating new missing tool: {tool_spec.tool_name}")
+            # Enforce MAX_TOOLS limit
+            if len(registry.missing_tools) >= MAX_TOOLS:
+                # At limit - update most-used tool instead
+                most_used = max(registry.missing_tools.values(), key=lambda t: t.frequency)
+                logger.warning(f"At {MAX_TOOLS}-tool limit, updating '{most_used.tool_name}' instead of creating new")
+                tool_spec = self._merge_tool_parameters(most_used, parsed, registry)
+            else:
+                tool_spec = HypotheticalTool(
+                    tool_name=parsed["tool_name"],
+                    description=parsed["description"],
+                    parameters=[ToolParameter(**p) for p in parsed["parameters"]],
+                    return_type=parsed["return_type"],
+                    category=parsed["category"]
+                )
+                logger.info(f"Creating new missing tool: {tool_spec.tool_name}")
         
         else:
             raise ValueError(f"Unknown action in LLM response: {parsed.get('action')}")

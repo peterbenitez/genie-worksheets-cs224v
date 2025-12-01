@@ -226,16 +226,11 @@ class DataAvailabilityChecker:
         Use LLM to identify what column/field is being requested.
         """
         try:
-            prompt = f"""Given this user query about {table} data:
-"{utterance}"
+            prompt = f"""Query: "{utterance}"
+Table: {table}
+Columns: {', '.join(available_columns)}
 
-What specific column or field is the user asking about?
-
-Respond with ONLY the field name, or "NONE" if the query doesn't ask for a specific field.
-
-Available columns in {table}: {', '.join(available_columns)}
-
-Field name:"""
+Return ONLY the column name that best matches the query, or NONE if no specific column is requested."""
 
             response = self.client.chat.completions.create(
                 model="gpt-4.1",
@@ -258,12 +253,11 @@ Field name:"""
         try:
             table_options = ", ".join(self.known_tables)
 
-            prompt = f"""Given this user query:
-"{utterance}"
+            prompt = f"""Query: "{utterance}"
+Available tables:
+{self._format_table_descriptions()}
 
-What data source is the user asking about? Choose from: {table_options}, or OTHER if not in the list.
-
-Data source:"""
+Return ONLY the table name, or OTHER if not in any table."""
 
             response = self.client.chat.completions.create(
                 model="gpt-4.1",
@@ -311,6 +305,17 @@ Data source:"""
                 similar.append(column_name)
 
         return similar[:threshold]
+
+    def _format_table_descriptions(self) -> str:
+        """Format table descriptions for the prompt."""
+        descriptions = []
+        for table_name, table_info in self.schema.items():
+            columns = table_info.get("columns", [])
+            sample_cols = ", ".join(columns[:5])
+            if len(columns) > 5:
+                sample_cols += f", ... ({len(columns)} total)"
+            descriptions.append(f"- {table_name}: {sample_cols}")
+        return "\n".join(descriptions) if descriptions else "No tables available"
 
 
 # Utility function for testing
