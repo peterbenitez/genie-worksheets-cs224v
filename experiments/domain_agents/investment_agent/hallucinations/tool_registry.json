@@ -1,282 +1,30 @@
 {
   "registry_version": "2.0",
-  "last_updated": "2025-11-21T17:28:00.516260",
+  "last_updated": "2025-12-01T21:13:40.920626",
   "existing_apis": {
     "UserProfile": {
       "description": "User profile with ID and risk profile",
-      "signature": "UserProfile(user_id: str, risk_profile: str)",
-      "returns": {
-        "type": "Dict",
-        "fields": [
-          "user_id",
-          "risk_profile",
-          "age",
-          "goals"
-        ],
-        "description": "User demographic and investment preferences"
-      },
-      "capabilities": {
-        "can_do": [
-          "Get user's risk tolerance (conservative, moderate, aggressive)",
-          "Retrieve user age and investment goals",
-          "Access user preferences"
-        ],
-        "cannot_do": [
-          "Calculate or modify risk profiles",
-          "Provide investment recommendations",
-          "Access account balances or holdings"
-        ]
-      },
-      "data_dependencies": [],
-      "when_to_use": "When you need user preferences before making recommendations",
-      "constraints": [
-        "Read-only - cannot modify user profile",
-        "Requires valid user_id"
-      ],
-      "example_queries": [
-        "What's my risk profile?",
-        "What are my investment goals?",
-        "Am I conservative or aggressive?"
-      ]
+      "signature": "UserProfile(user_id: str, risk_profile: str)"
     },
     "GetRecommendation": {
       "description": "Get investment recommendations based on risk profile",
-      "signature": "GetRecommendation(value_to_invest: float)",
-      "returns": {
-        "type": "Dict",
-        "fields": [
-          "recommended_funds",
-          "allocation_percentages",
-          "risk_level",
-          "rationale"
-        ],
-        "description": "Investment recommendations with suggested allocation"
-      },
-      "capabilities": {
-        "can_do": [
-          "Suggest funds based on user's risk profile",
-          "Provide allocation percentages across multiple funds",
-          "Match investment goals to appropriate products",
-          "Recommend diversified portfolio"
-        ],
-        "cannot_do": [
-          "Calculate required monthly/annual contributions",
-          "Project future returns or values",
-          "Perform portfolio optimization calculations",
-          "Provide tax optimization advice",
-          "Calculate compound interest or time-value of money"
-        ]
-      },
-      "data_dependencies": [
-        "UserProfile",
-        "fidelity_funds DB"
-      ],
-      "when_to_use": "When user needs product recommendations or allocation advice for a specific investment amount",
-      "constraints": [
-        "Requires UserProfile to be set first",
-        "Only recommends from funds available in fidelity_funds DB",
-        "Does not perform mathematical projections or calculations",
-        "Recommendations are static, not optimized dynamically"
-      ],
-      "example_queries": [
-        "What funds should I invest in?",
-        "Recommend an aggressive portfolio",
-        "How should I allocate $10,000?",
-        "What's a good diversified investment?"
-      ]
+      "signature": "GetRecommendation(value_to_invest: float)"
     },
     "GetAccountBalance": {
       "description": "Get the user's current account balance",
-      "signature": "GetAccountBalance()",
-      "returns": {
-        "type": "float",
-        "description": "Current account balance in dollars"
-      },
-      "capabilities": {
-        "can_do": [
-          "Retrieve current account balance",
-          "Check available funds for investment"
-        ],
-        "cannot_do": [
-          "Show historical balance changes",
-          "Calculate net worth or total assets",
-          "Access external account balances",
-          "Show pending transactions"
-        ]
-      },
-      "data_dependencies": [],
-      "when_to_use": "When user asks about current balance or available funds",
-      "constraints": [
-        "Read-only",
-        "Shows only this account, not total assets"
-      ],
-      "example_queries": [
-        "What's my account balance?",
-        "How much money do I have?",
-        "What funds are available to invest?"
-      ]
+      "signature": "GetAccountBalance()"
     },
     "UsersInvestmentPortfolio": {
       "description": "Get user's current investment holdings",
-      "signature": "UsersInvestmentPortfolio()",
-      "returns": {
-        "type": "List[Dict]",
-        "fields": [
-          "symbol",
-          "shares",
-          "current_value",
-          "cost_basis"
-        ],
-        "description": "List of current investment holdings"
-      },
-      "capabilities": {
-        "can_do": [
-          "Show current holdings with symbols and quantities",
-          "Display current market value of holdings",
-          "List all invested funds and bonds"
-        ],
-        "cannot_do": [
-          "Calculate portfolio performance or returns",
-          "Show historical holdings",
-          "Analyze portfolio risk or diversification",
-          "Suggest rebalancing actions",
-          "Calculate gains/losses"
-        ]
-      },
-      "data_dependencies": [],
-      "when_to_use": "When user asks about current holdings or portfolio composition",
-      "constraints": [
-        "Read-only",
-        "Shows snapshot, not historical data"
-      ],
-      "example_queries": [
-        "What do I currently own?",
-        "Show my portfolio",
-        "What funds am I invested in?",
-        "What are my holdings?"
-      ]
+      "signature": "UsersInvestmentPortfolio()"
     },
     "CertificateDepositInvestment": {
       "description": "Process a certificate deposit (CD/bond) investment transaction",
-      "signature": "CertificateDepositInvestment(certificate_allocation: CertificateDepositAllocation, confirm: bool)",
-      "returns": {
-        "type": "Dict",
-        "fields": [
-          "status",
-          "transaction_id",
-          "confirmation"
-        ],
-        "description": "Transaction result"
-      },
-      "capabilities": {
-        "can_do": [
-          "Execute bond/CD purchase",
-          "Process investment transaction",
-          "Confirm or preview transaction"
-        ],
-        "cannot_do": [
-          "Recommend which bonds to buy",
-          "Calculate optimal bond allocation",
-          "Analyze bond risk or yields"
-        ]
-      },
-      "data_dependencies": [
-        "CertificateDepositAllocation"
-      ],
-      "when_to_use": "When user wants to execute a bond/CD investment (not for recommendations)",
-      "constraints": [
-        "Requires explicit confirmation",
-        "Execution only, no analysis or recommendations"
-      ],
-      "example_queries": [
-        "Buy this bond",
-        "Invest in this CD",
-        "Execute bond purchase"
-      ]
+      "signature": "CertificateDepositInvestment(certificate_allocation, confirm: bool)"
     },
     "FundInvestment": {
       "description": "Process a mutual fund investment transaction",
-      "signature": "FundInvestment(fund_allocations: FundAllocation, confirm: bool)",
-      "returns": {
-        "type": "Dict",
-        "fields": [
-          "status",
-          "transaction_id",
-          "confirmation"
-        ],
-        "description": "Transaction result"
-      },
-      "capabilities": {
-        "can_do": [
-          "Execute fund purchase",
-          "Process investment transaction",
-          "Confirm or preview transaction"
-        ],
-        "cannot_do": [
-          "Recommend which funds to buy",
-          "Calculate optimal fund allocation",
-          "Analyze fund risk or returns"
-        ]
-      },
-      "data_dependencies": [
-        "FundAllocation"
-      ],
-      "when_to_use": "When user wants to execute a fund investment (not for recommendations)",
-      "constraints": [
-        "Requires explicit confirmation",
-        "Execution only, no analysis or recommendations"
-      ],
-      "example_queries": [
-        "Buy this fund",
-        "Invest in FXAIX",
-        "Execute fund purchase"
-      ]
-    },
-    "CertificateDepositAllocation": {
-      "description": "Allocation details for certificate deposit investment",
-      "signature": "CertificateDepositAllocation(fund_to_invest_in: CertificateDeposit, investment_amount: float)",
-      "returns": {
-        "type": "Dict",
-        "description": "Allocation specification for CD/bond"
-      },
-      "capabilities": {
-        "can_do": [
-          "Specify bond/CD and investment amount"
-        ],
-        "cannot_do": [
-          "Recommend bonds",
-          "Calculate allocation percentages"
-        ]
-      },
-      "data_dependencies": [],
-      "when_to_use": "When constructing CD/bond investment parameters",
-      "constraints": [
-        "Data structure only, not an action"
-      ],
-      "example_queries": []
-    },
-    "FundAllocation": {
-      "description": "Allocation details for fund investment",
-      "signature": "FundAllocation(fund_to_invest_in: Fund, investment_amount: float)",
-      "returns": {
-        "type": "Dict",
-        "description": "Allocation specification for fund"
-      },
-      "capabilities": {
-        "can_do": [
-          "Specify fund and investment amount"
-        ],
-        "cannot_do": [
-          "Recommend funds",
-          "Calculate allocation percentages"
-        ]
-      },
-      "data_dependencies": [],
-      "when_to_use": "When constructing fund investment parameters",
-      "constraints": [
-        "Data structure only, not an action"
-      ],
-      "example_queries": []
+      "signature": "FundInvestment(fund_allocations, confirm: bool)"
     }
   },
   "existing_kb_tables": {
@@ -317,517 +65,673 @@
         "ratings_morningstarOverall",
         "ratings_morningstarRisk",
         "ratings_beta3Year"
-      ],
-      "column_groups": {
-        "identifiers": [
-          "id",
-          "symbol",
-          "name"
-        ],
-        "performance": [
-          "returns_oneYear",
-          "returns_threeYear",
-          "returns_fiveYear",
-          "returns_tenYear"
-        ],
-        "calendar_returns": [
-          "returns_calendar_2015",
-          "returns_calendar_2016",
-          "returns_calendar_2017",
-          "returns_calendar_2018",
-          "returns_calendar_2019",
-          "returns_calendar_2020",
-          "returns_calendar_2021",
-          "returns_calendar_2022",
-          "returns_calendar_2023",
-          "returns_calendar_2024"
-        ],
-        "risk_ratings": [
-          "ratings_morningstarOverall",
-          "ratings_morningstarRisk",
-          "ratings_beta3Year"
-        ],
-        "pricing": [
-          "price_nav",
-          "price_fiftyTwoWeek_low",
-          "price_fiftyTwoWeek_high"
-        ],
-        "costs": [
-          "expenseRatio"
-        ],
-        "yields": [
-          "yields_distribution",
-          "yields_dividendRate"
-        ]
-      },
-      "temporal_coverage": {
-        "earliest_year": 2015,
-        "latest_year": 2024,
-        "note": "Calendar year returns available from 2015-2024 only",
-        "missing_before": "No historical data before 2015",
-        "missing_after": "Future data not available"
-      },
-      "available_operations": [
-        "SELECT with WHERE clauses (filter funds)",
-        "Filter by risk rating (ratings_morningstarRisk: conservative/moderate/aggressive)",
-        "Sort by performance metrics (returns_*, expenseRatio)",
-        "Filter by expense ratio or other costs",
-        "Query specific calendar year returns (2015-2024)",
-        "Compare multiple funds"
-      ],
-      "semantics": {
-        "can_answer": [
-          "Find funds matching specific risk profile (conservative/moderate/aggressive)",
-          "Get historical returns for specific years between 2015-2024",
-          "Filter by expense ratio, ratings, or yields",
-          "Compare fund performance across different time periods",
-          "Find low-cost or high-yield funds",
-          "Query fund details like symbol, name, summary",
-          "Sort funds by 1-year, 3-year, 5-year, or 10-year returns"
-        ],
-        "cannot_answer": [
-          "Historical data before 2015 (e.g., 1990s, 2000s data)",
-          "Future projections or predictions",
-          "Calculate required contributions to reach goals",
-          "Perform portfolio optimization (modern portfolio theory)",
-          "Calculate compound interest or time-value of money",
-          "Tax implications or tax-advantaged strategies",
-          "Real-time price updates (data may be delayed)",
-          "Fund holdings or underlying securities details",
-          "Expense ratios for bonds (only available for funds)"
-        ]
-      },
-      "common_use_cases": [
-        "Query: 'Find aggressive funds' -> WHERE ratings_morningstarRisk = 'high' or 'aggressive'",
-        "Query: 'Best performing funds in 2023' -> ORDER BY returns_calendar_2023 DESC LIMIT 10",
-        "Query: 'Low expense ratio funds' -> WHERE expenseRatio < 0.5",
-        "Query: 'Funds with high 5-year returns' -> WHERE returns_fiveYear > 10.0",
-        "Query: 'Compare FXAIX vs VTSAX' -> WHERE symbol IN ('FXAIX', 'VTSAX')"
-      ],
-      "data_quality_notes": [
-        "Returns are percentages (e.g., 10.5 means 10.5%)",
-        "Some funds may have NULL values for older calendar years if inception was recent",
-        "expense_ratio is annual fee as percentage of assets"
       ]
     },
     "fidelity_bonds": {
       "columns": [
         "Description",
         "Coupon",
-        "Coupon Frequency",
-        "Maturity Date",
-        "Moody's Rating",
-        "S&P Rating",
-        "Expected Price",
-        "Expected Yield",
-        "Call Protected",
-        "Offering Period",
-        "Settlement Date",
+        "Coupon",
+        "Maturity",
+        "Expected",
+        "Expected",
+        "Call",
+        "Offering",
+        "Settlement",
         "Attributes"
-      ],
-      "column_groups": {
-        "identifiers": [
-          "Description"
-        ],
-        "pricing": [
-          "Expected Price",
-          "Expected Yield"
-        ],
-        "ratings": [
-          "Moody's Rating",
-          "S&P Rating"
-        ],
-        "terms": [
-          "Coupon",
-          "Coupon Frequency",
-          "Maturity Date"
-        ],
-        "features": [
-          "Call Protected",
-          "Attributes"
-        ]
-      },
-      "temporal_coverage": null,
-      "available_operations": [
-        "SELECT with WHERE clauses (filter bonds)",
-        "Filter by credit rating (Moody's, S&P)",
-        "Sort by yield or price",
-        "Filter by maturity date",
-        "Query bond details"
-      ],
-      "semantics": {
-        "can_answer": [
-          "Find bonds by credit rating (Moody's or S&P)",
-          "Filter by expected yield or price",
-          "Query bonds with specific maturity dates",
-          "Find call-protected bonds",
-          "Filter by coupon rate or frequency",
-          "List available bonds with their characteristics"
-        ],
-        "cannot_answer": [
-          "Expense ratios for bonds (bonds don't have expense ratios - that's a fund concept)",
-          "Historical bond performance or returns",
-          "Calculate bond yield-to-maturity or duration",
-          "Recommend optimal bond allocation",
-          "Tax implications of bond investments",
-          "Compare bond risk vs bond funds"
-        ]
-      },
-      "common_use_cases": [
-        "Query: 'High-rated bonds' -> WHERE \"Moody's Rating\" IN ('Aaa', 'Aa1', 'Aa2')",
-        "Query: 'Bonds with yield > 5%' -> WHERE \"Expected Yield\" > 5.0",
-        "Query: 'Short-term bonds' -> WHERE \"Maturity Date\" < '2026-01-01'",
-        "Query: 'Investment grade bonds' -> WHERE \"S&P Rating\" IN ('AAA', 'AA', 'A', 'BBB')"
-      ],
-      "data_quality_notes": [
-        "Expected Yield is annualized percentage",
-        "Ratings may be NULL if bond is unrated",
-        "Call Protected indicates if bond can be called early by issuer",
-        "NO expense_ratio column - bonds don't have expense ratios"
       ]
     }
   },
   "missing_tools_by_action": {
-    "misc": {
-      "build_custom_equity_portfolio": {
-        "tool_name": "build_custom_equity_portfolio",
-        "description": "Constructs a diversified, all-equity investment portfolio across high-growth areas (US, international, emerging markets, small/mid-cap, tech, etc.) based on user-specified total investment amount. Returns specific fund names, tickers, allocation percentages, and rationales for each selection.",
+    "explain": {
+      "explain_concept": {
+        "tool_name": "explain_concept",
+        "description": "Provides a clear, concise explanation of a financial or investment concept, such as risk, asset types, or investment strategies.",
         "parameters": [
           {
-            "name": "total_investment_amount",
-            "type": "float",
-            "description": "The total dollar amount to allocate across the portfolio.",
-            "required": true
-          },
-          {
-            "name": "growth_areas",
-            "type": "List[str]",
-            "description": "List of high-growth equity areas to include (e.g., US, international, emerging markets, small/mid-cap, technology).",
+            "name": "concept",
+            "type": "str",
+            "description": "The financial or investment concept to explain (e.g., 'why bonds are safer than stocks', 'diversification', 'compound interest').",
             "required": true
           }
         ],
-        "return_type": "List[Dict[str, Any]] (each dict contains: fund_name, ticker, allocation_percentage, allocation_amount, rationale)",
+        "return_type": "str (text explanation of the concept)",
         "category": "api_function",
-        "frequency": 2,
-        "first_seen": "2025-11-21T17:23:16.490370",
-        "last_seen": "2025-11-21T17:25:56.086156",
+        "frequency": 20,
+        "first_seen": "2025-12-01T12:45:35.670171",
+        "last_seen": "2025-12-01T21:13:19.092768",
         "conversation_contexts": [
           {
-            "user_utterance": "Yes, that\u2019s exactly what I want\u2014ditch the redundancy and negative bond allocation. Build me a diversified, all-equity portfolio across high-growth areas (US, international, emerging markets, small/mid-cap, tech, etc.), not just the same value fund. Give me specific fund names, tickers, and allocation percentages so it actually adds up to $50k. Then explain why you picked each one and how they complement each other for max growth.",
-            "timestamp": "2025-11-21T17:23:16.490370",
-            "hallucinated_response": "I cannot construct a concrete portfolio allocation with specific fund names, tickers, and categories across multiple fund families or apply allocation constraints, as my tools only provide access to Fidelity funds and do not support portfolio optimization or selection outside of Fidelity.",
-            "turn_number": 6,
-            "allow_hallucination": false,
-            "investor_profile": "aggressive_young_investor",
-            "user_risk_profile": "aggressive",
-            "semantic_mapping": "The user wants a $50k all-equity portfolio diversified across high-growth areas, with specific fund names, tickers, and allocation percentages that sum to 100%. The tool should select appropriate funds from the available database, allocate percentages to each, calculate the dollar amount per fund, and provide a rationale for each choice, ensuring the portfolio is diversified and growth-oriented.",
-            "example_usage": "build_custom_equity_portfolio(total_investment_amount=50000, growth_areas=['US', 'international', 'emerging markets', 'small cap', 'technology'])"
+            "query": "Explain why bonds are safer than stocks",
+            "timestamp": "2025-12-01T12:45:35.670171"
           },
           {
-            "user_utterance": "Alright, $50k isn\u2019t pocket change\u2014I want my money working hard. Given I\u2019m aggressive and thinking long-term, why shouldn\u2019t I just dump everything into high-growth tech stocks or even a few promising crypto projects? Convince me there\u2019s a smarter approach.",
-            "timestamp": "2025-11-21T17:25:56.086156",
-            "hallucinated_response": "Investment recommendations often balance growth potential with risk management, even for aggressive investors. Allocating a portion to intermediate bond funds can help stabilize returns during market volatility, while still allowing for significant equity exposure. The suggested allocation may be influenced by general market trends and risk models, but it can be tailored further to match your specific long-term growth goals and current market conditions. If you prefer a higher equity allocation, we can adjust the recommendation to better suit your preferences.",
-            "turn_number": 2,
+            "query": "Explain compound interest",
+            "timestamp": "2025-12-01T12:45:47.946640"
+          },
+          {
+            "query": "What is dollar cost averaging?",
+            "timestamp": "2025-12-01T12:45:54.079857"
+          },
+          {
+            "query": "Difference between mutual funds and ETFs?",
+            "timestamp": "2025-12-01T12:45:55.911469"
+          },
+          {
+            "query": "How risky is putting all in stocks?",
+            "timestamp": "2025-12-01T12:45:57.831556"
+          },
+          {
+            "query": "What are REITs?",
+            "timestamp": "2025-12-01T12:45:59.527470"
+          },
+          {
+            "query": "How do expense ratios work?",
+            "timestamp": "2025-12-01T12:46:01.384125"
+          },
+          {
+            "query": "Explain the 60/40 portfolio",
+            "timestamp": "2025-12-01T12:46:03.446265"
+          },
+          {
+            "query": "What happens in a recession?",
+            "timestamp": "2025-12-01T12:46:05.408528"
+          },
+          {
+            "query": "Should I invest in crypto?",
+            "timestamp": "2025-12-01T12:46:07.457107"
+          },
+          {
+            "query": "How to minimize investment taxes?",
+            "timestamp": "2025-12-01T12:46:09.346925"
+          },
+          {
+            "user_utterance": "What is dollar cost averaging?",
+            "timestamp": "2025-12-01T12:56:11.010061",
+            "hallucinated_response": "I cannot answer that question with the tools available to me",
+            "turn_number": null,
+            "allow_hallucination": false,
+            "investor_profile": null,
+            "user_risk_profile": null,
+            "semantic_mapping": "The user query 'What is dollar cost averaging?' maps to the 'concept' parameter of the 'explain_concept' tool, with the value 'dollar cost averaging.' The tool is expected to return a text explanation of this concept.",
+            "example_usage": "explain_concept(concept='dollar cost averaging')"
+          },
+          {
+            "user_utterance": "How risky is putting everything in stocks?",
+            "timestamp": "2025-12-01T12:56:18.773613",
+            "hallucinated_response": "I cannot answer that question with the tools available to me",
+            "turn_number": null,
+            "allow_hallucination": false,
+            "investor_profile": null,
+            "user_risk_profile": null,
+            "semantic_mapping": "The user query 'How risky is putting everything in stocks?' maps directly to the concept of 'risk of 100% stock allocation' or more generally 'risk of investing solely in stocks.' The tool expects a concept string and returns a text explanation, which fits the user's need for an understanding of the risks involved.",
+            "example_usage": "explain_concept(concept='risk of 100% stock allocation')"
+          },
+          {
+            "user_utterance": "Explain why bonds are safer than stocks",
+            "timestamp": "2025-12-01T12:56:32.768833",
+            "hallucinated_response": "For a 25-year-old, a well-diversified portfolio typically emphasizes growth by allocating a larger portion to equity funds or stocks\u2014often around 80-90%\u2014with the remainder in bonds or other fixed-income investments for stability. This approach takes advantage of your long investment horizon, allowing you to weather market fluctuations and potentially achieve higher returns over time. As you get older, you can gradually shift more assets into conservative investments to reduce risk.",
+            "turn_number": null,
             "allow_hallucination": true,
-            "investor_profile": "aggressive_young_investor",
-            "user_risk_profile": "aggressive",
-            "semantic_mapping": "The user wants to know if there's a smarter way to invest $50k aggressively for the long term than just putting it all in tech stocks or crypto. The build_custom_equity_portfolio tool takes a total investment amount and a list of growth areas (which can include tech, but also other high-growth segments) and returns a diversified portfolio with specific fund names, tickers, allocation percentages, allocation amounts, and rationales for each selection. This output can be used to explain the benefits of diversification and provide a concrete alternative to a concentrated tech/crypto bet.",
-            "example_usage": "build_custom_equity_portfolio(total_investment_amount=50000, growth_areas=['US tech', 'international growth', 'emerging markets', 'small cap', 'mid cap', 'thematic tech'])"
+            "investor_profile": null,
+            "user_risk_profile": null,
+            "semantic_mapping": "The user query 'Explain why bonds are safer than stocks' maps directly to the 'concept' parameter of the tool, with the value being something like 'bond safety vs stock safety' or simply 'why bonds are safer than stocks'. The tool is expected to return a text explanation addressing the comparative safety of bonds and stocks.",
+            "example_usage": "explain_concept(concept='why bonds are safer than stocks')"
+          },
+          {
+            "user_utterance": "What is dollar cost averaging?",
+            "timestamp": "2025-12-01T12:57:00.448334",
+            "hallucinated_response": "Investing all your money in stocks is considered high risk because stock prices can be very volatile and are subject to market fluctuations. While stocks have the potential for higher long-term returns compared to other asset classes, they can also experience significant short-term losses. Diversifying your investments across different asset types, such as bonds or cash equivalents, can help reduce overall risk and provide more stability to your portfolio.",
+            "turn_number": null,
+            "allow_hallucination": true,
+            "investor_profile": null,
+            "user_risk_profile": null,
+            "semantic_mapping": "The user query 'What is dollar cost averaging?' maps directly to the 'concept' parameter of the 'explain_concept' tool, with the value 'dollar cost averaging'. The tool is expected to return a text explanation of this concept.",
+            "example_usage": "explain_concept(concept='dollar cost averaging')"
+          },
+          {
+            "user_utterance": "How risky is putting everything in stocks?",
+            "timestamp": "2025-12-01T12:57:08.736144",
+            "hallucinated_response": "A Roth IRA offers tax-free growth and tax-free withdrawals in retirement, as contributions are made with after-tax dollars. In contrast, a traditional IRA allows you to make pre-tax contributions, which may be tax-deductible, but withdrawals in retirement are taxed as ordinary income. The main benefit of a Roth IRA is tax-free income in retirement, while a traditional IRA provides an immediate tax deduction but taxes your withdrawals later.",
+            "turn_number": null,
+            "allow_hallucination": true,
+            "investor_profile": null,
+            "user_risk_profile": null,
+            "semantic_mapping": "The user query maps directly to the 'concept' parameter with a value such as 'risk of investing only in stocks' or simply 'stock investment risk'. The tool will return a text explanation describing the risks associated with concentrating all investments in stocks.",
+            "example_usage": "explain_concept(concept='risk of investing only in stocks')"
+          },
+          {
+            "user_utterance": "What is dollar cost averaging?",
+            "timestamp": "2025-12-01T14:13:06.362248",
+            "hallucinated_response": "I cannot answer that question with the tools available to me",
+            "turn_number": null,
+            "allow_hallucination": false,
+            "investor_profile": null,
+            "user_risk_profile": null,
+            "semantic_mapping": "The user query 'What is dollar cost averaging?' maps to the 'concept' parameter with the value 'dollar cost averaging.' The tool will return a text explanation describing what dollar cost averaging means in the context of investing.",
+            "example_usage": "explain_concept(concept='dollar cost averaging')"
+          },
+          {
+            "user_utterance": "What's the difference between a Roth IRA and traditional IRA?",
+            "timestamp": "2025-12-01T21:12:54.037573",
+            "hallucinated_response": "A common guideline is to save at least 10-15% of your annual income for retirement throughout your working years. Many financial experts recommend aiming to accumulate about 10 to 12 times your final annual salary by the time you retire. The exact amount you should save depends on your desired retirement lifestyle, expected expenses, and other sources of income. It can be helpful to consult with a financial advisor for a personalized plan.",
+            "turn_number": null,
+            "allow_hallucination": true,
+            "investor_profile": null,
+            "user_risk_profile": null,
+            "semantic_mapping": "The user query ('What's the difference between a Roth IRA and traditional IRA?') maps directly to the 'concept' parameter of the tool, with the value being 'Roth IRA vs traditional IRA' or simply 'Roth IRA' and 'traditional IRA'. The tool will return a text explanation describing the differences, including tax treatment, contribution rules, withdrawal rules, and other relevant features.",
+            "example_usage": "explain_concept(concept='Roth IRA vs traditional IRA')"
+          },
+          {
+            "user_utterance": "What are index funds?",
+            "timestamp": "2025-12-01T21:13:11.592670",
+            "hallucinated_response": "Deciding when to invest depends on your financial goals, risk tolerance, and investment horizon. Historically, investing for the long term and staying consistent tends to yield positive results, regardless of short-term market fluctuations. If you have a well-diversified portfolio and a long-term plan, starting to invest now can be a good approach. However, it's always wise to review your personal financial situation or consult with a financial advisor before making investment decisions.",
+            "turn_number": null,
+            "allow_hallucination": true,
+            "investor_profile": null,
+            "user_risk_profile": null,
+            "semantic_mapping": "The user query 'What are index funds?' maps directly to the 'concept' parameter of the tool, with 'index funds' as the value. The tool will return a text explanation describing what index funds are, their characteristics, and possibly their benefits and risks.",
+            "example_usage": "explain_concept(concept='index funds')"
+          },
+          {
+            "user_utterance": "Is now a good time to invest?",
+            "timestamp": "2025-12-01T21:13:19.092768",
+            "hallucinated_response": "Dividends are payments made by a company to its shareholders, usually from profits. They are typically distributed on a regular basis, such as quarterly or annually, and can be paid in cash or additional shares of stock. Receiving dividends is one way investors can earn a return on their investment, in addition to any increase in the value of the stock itself.",
+            "turn_number": null,
+            "allow_hallucination": true,
+            "investor_profile": null,
+            "user_risk_profile": null,
+            "semantic_mapping": "The user query maps to the 'concept' parameter by requesting an explanation of whether current conditions make it a good time to invest. The tool can be used to explain the concept of 'market timing' or 'when to invest', including factors to consider and general guidance.",
+            "example_usage": "explain_concept(concept='market timing')"
           }
         ],
         "version": 1,
         "version_history": [
           {
             "version": 1,
-            "timestamp": "2025-11-21T17:23:16.490370",
+            "timestamp": "2025-12-01T12:45:35.670171",
             "change_type": "created",
             "change_description": "Initial tool discovery",
             "parameters_snapshot": [
               {
-                "name": "total_investment_amount",
-                "type": "float",
-                "description": "The total dollar amount to allocate across the portfolio.",
-                "required": true
-              },
-              {
-                "name": "growth_areas",
-                "type": "List[str]",
-                "description": "List of high-growth equity areas to include (e.g., US, international, emerging markets, small/mid-cap, technology).",
+                "name": "concept",
+                "type": "str",
+                "description": "The financial or investment concept to explain (e.g., 'why bonds are safer than stocks', 'diversification', 'compound interest').",
                 "required": true
               }
             ],
-            "description_snapshot": "Constructs a diversified, all-equity investment portfolio across high-growth areas (US, international, emerging markets, small/mid-cap, tech, etc.) based on user-specified total investment amount. Returns specific fund names, tickers, allocation percentages, and rationales for each selection."
+            "description_snapshot": "Provides a clear, concise explanation of a financial or investment concept, such as risk, asset types, or investment strategies."
           }
         ]
       }
     },
-    "explain": {
-      "explain_portfolio_allocation_rationale": {
-        "tool_name": "explain_portfolio_allocation_rationale",
-        "description": "Explains the rationale behind a recommended investment portfolio allocation, including the reasoning for specific asset class weights (e.g., bonds vs. equities), how user risk tolerance and age are factored in, and whether current market conditions or templates are used.",
+    "list": {
+      "list_investments_by_metric": {
+        "tool_name": "list_investments_by_metric",
+        "description": "Lists investments (such as ETFs, mutual funds, or other asset types) ranked or filtered by a specified performance metric (e.g., return, risk, expense ratio) and allows for optional filtering by investment type, time period, or other attributes.",
         "parameters": [
           {
-            "name": "user_age",
+            "name": "investment_type",
+            "type": "str",
+            "description": "Type of investment to filter by (e.g., 'ETF', 'mutual fund', 'bond').",
+            "required": false
+          },
+          {
+            "name": "metric",
+            "type": "str",
+            "description": "Performance metric to rank or filter by (e.g., 'return', 'risk', 'expense_ratio').",
+            "required": true
+          },
+          {
+            "name": "time_period",
+            "type": "str",
+            "description": "Time period over which to evaluate the metric (e.g., '1y', '5y', 'YTD').",
+            "required": false
+          },
+          {
+            "name": "top_n",
             "type": "int",
-            "description": "The age of the user",
-            "required": true
-          },
-          {
-            "name": "risk_tolerance",
-            "type": "str",
-            "description": "The user's risk tolerance (e.g., high, medium, low)",
-            "required": true
-          },
-          {
-            "name": "recommended_allocation",
-            "type": "dict",
-            "description": "The recommended portfolio allocation, with asset classes and their respective percentages",
-            "required": true
-          },
-          {
-            "name": "market_conditions",
-            "type": "str",
-            "description": "A summary of current market conditions factored into the recommendation, if any",
+            "description": "Number of top results to return.",
             "required": false
           }
         ],
-        "return_type": "str (text explanation)",
+        "return_type": "List[dict] (each dict contains investment identifier, name, and metric value, optionally other summary fields)",
         "category": "api_function",
-        "frequency": 1,
-        "first_seen": "2025-11-21T17:26:08.992306",
-        "last_seen": "2025-11-21T17:26:08.992306",
+        "frequency": 2,
+        "first_seen": "2025-12-01T12:45:39.629025",
+        "last_seen": "2025-12-01T12:45:42.214773",
         "conversation_contexts": [
           {
-            "user_utterance": "Wait\u201444% in an intermediate bond fund? That feels way too conservative for someone my age with a high risk tolerance. Why are you recommending such a heavy bond allocation when I\u2019m looking to maximize long-term growth? Are you factoring in current market conditions or just using a template?",
-            "timestamp": "2025-11-21T17:26:08.992306",
-            "hallucinated_response": "Over the past 10 years, aggressive stock allocations have generally outperformed bond-heavy portfolios in terms of total returns, especially during strong bull markets. However, including intermediate bonds in a portfolio can help reduce volatility and drawdowns during market downturns, providing a smoother ride and better risk-adjusted returns. For example, a portfolio with 40-50% bonds would have experienced smaller losses during periods like 2020's market crash, while still capturing much of the upside during recovery phases. The recommended mix aims to balance growth with stability, but if your goal is maximum growth and you can tolerate higher risk, a more equity-focused allocation may be appropriate. For precise historical performance comparisons, I recommend using a portfolio backtesting tool or consulting recent fund fact sheets for 10-year returns.",
-            "turn_number": 3,
-            "allow_hallucination": true,
-            "investor_profile": "aggressive_young_investor",
-            "user_risk_profile": "aggressive",
-            "semantic_mapping": "The user is asking for a justification of the portfolio allocation, specifically why a high bond allocation is recommended despite their young age and high risk tolerance, and whether the recommendation is dynamic or template-based. This tool would take the user's age, risk profile, the actual recommended allocation, and optionally current market context, and return a clear explanation of the reasoning behind the allocation.",
-            "example_usage": "explain_portfolio_allocation_rationale(user_age=30, risk_tolerance='high', recommended_allocation={'bonds': 44, 'equities': 56}, market_conditions='Rising interest rates, moderate inflation')"
+            "query": "What ETFs have highest returns?",
+            "timestamp": "2025-12-01T12:45:39.629025"
+          },
+          {
+            "query": "Compare S&P 500 vs total market",
+            "timestamp": "2025-12-01T12:45:42.214773"
           }
         ],
         "version": 1,
         "version_history": [
           {
             "version": 1,
-            "timestamp": "2025-11-21T17:26:08.992306",
+            "timestamp": "2025-12-01T12:45:39.629025",
             "change_type": "created",
             "change_description": "Initial tool discovery",
             "parameters_snapshot": [
               {
-                "name": "user_age",
+                "name": "investment_type",
+                "type": "str",
+                "description": "Type of investment to filter by (e.g., 'ETF', 'mutual fund', 'bond').",
+                "required": false
+              },
+              {
+                "name": "metric",
+                "type": "str",
+                "description": "Performance metric to rank or filter by (e.g., 'return', 'risk', 'expense_ratio').",
+                "required": true
+              },
+              {
+                "name": "time_period",
+                "type": "str",
+                "description": "Time period over which to evaluate the metric (e.g., '1y', '5y', 'YTD').",
+                "required": false
+              },
+              {
+                "name": "top_n",
                 "type": "int",
-                "description": "The age of the user",
-                "required": true
-              },
-              {
-                "name": "risk_tolerance",
-                "type": "str",
-                "description": "The user's risk tolerance (e.g., high, medium, low)",
-                "required": true
-              },
-              {
-                "name": "recommended_allocation",
-                "type": "dict",
-                "description": "The recommended portfolio allocation, with asset classes and their respective percentages",
-                "required": true
-              },
-              {
-                "name": "market_conditions",
-                "type": "str",
-                "description": "A summary of current market conditions factored into the recommendation, if any",
+                "description": "Number of top results to return.",
                 "required": false
               }
             ],
-            "description_snapshot": "Explains the rationale behind a recommended investment portfolio allocation, including the reasoning for specific asset class weights (e.g., bonds vs. equities), how user risk tolerance and age are factored in, and whether current market conditions or templates are used."
+            "description_snapshot": "Lists investments (such as ETFs, mutual funds, or other asset types) ranked or filtered by a specified performance metric (e.g., return, risk, expense ratio) and allows for optional filtering by investment type, time period, or other attributes."
+          }
+        ]
+      }
+    },
+    "misc": {
+      "suggest_portfolio_allocation": {
+        "tool_name": "suggest_portfolio_allocation",
+        "description": "Suggests an example investment portfolio allocation based on user age, risk profile, and optionally investment goals or time horizon. Returns a recommended percentage allocation across major asset classes (e.g., stocks, bonds, cash) and optionally example fund or asset types.",
+        "parameters": [
+          {
+            "name": "age",
+            "type": "int",
+            "description": "The user's age, used to estimate risk tolerance and investment horizon.",
+            "required": true
+          },
+          {
+            "name": "risk_profile",
+            "type": "str",
+            "description": "The user's risk tolerance (e.g., conservative, moderate, aggressive).",
+            "required": false
+          },
+          {
+            "name": "investment_goal",
+            "type": "str",
+            "description": "The user's primary investment goal (e.g., retirement, wealth accumulation, short-term savings).",
+            "required": false
+          },
+          {
+            "name": "time_horizon_years",
+            "type": "int",
+            "description": "The expected investment time horizon in years.",
+            "required": false
+          }
+        ],
+        "return_type": "dict (with keys: asset_class (str), allocation_percent (float), optional: example_funds (List[str]), rationale (str))",
+        "category": "api_function",
+        "frequency": 4,
+        "first_seen": "2025-12-01T12:45:46.263508",
+        "last_seen": "2025-12-01T14:12:51.687461",
+        "conversation_contexts": [
+          {
+            "query": "Good portfolio for 25 year old?",
+            "timestamp": "2025-12-01T12:45:46.263508"
+          },
+          {
+            "user_utterance": "What's the best portfolio for a 25 year old?",
+            "timestamp": "2025-12-01T12:55:54.938480",
+            "hallucinated_response": "I cannot answer that question with the tools available to me",
+            "turn_number": null,
+            "allow_hallucination": false,
+            "investor_profile": null,
+            "user_risk_profile": null,
+            "semantic_mapping": "The user query provides the age (25). The tool expects age (int), risk_profile (str), investment_goal (str), and time_horizon_years (int). For a generic answer, risk_profile, investment_goal, and time_horizon_years could be set to typical defaults (e.g., 'moderate', 'retirement', 40 years), or the tool could prompt for these if not provided. The output will be a recommended allocation across asset classes, which is exactly what the user is seeking.",
+            "example_usage": "suggest_portfolio_allocation(age=25, risk_profile='moderate', investment_goal='retirement', time_horizon_years=40)"
+          },
+          {
+            "user_utterance": "What's the best portfolio for a 25 year old?",
+            "timestamp": "2025-12-01T12:56:42.959240",
+            "hallucinated_response": "Deciding whether to pay off debt or invest first depends on your specific financial situation. Generally, if your debt carries a high interest rate (such as credit card debt), it's wise to pay it off before investing, since the guaranteed savings from eliminating high-interest payments often outweigh potential investment returns. If your debt has a low interest rate (like some student loans or mortgages), you might consider investing while making regular debt payments, especially if you can earn a higher return on investments. It's also important to maintain an emergency fund and ensure you can comfortably manage your debt payments before investing.",
+            "turn_number": null,
+            "allow_hallucination": true,
+            "investor_profile": null,
+            "user_risk_profile": null,
+            "semantic_mapping": "The user query 'What's the best portfolio for a 25 year old?' maps directly to the tool's parameters: age=25, with risk_profile, investment_goal, and time_horizon_years either set to defaults or prompted for further clarification. The tool returns a dict with asset class allocations and rationale, which is exactly what the user is seeking.",
+            "example_usage": "suggest_portfolio_allocation(age=25, risk_profile='moderate', investment_goal='general growth', time_horizon_years=30)"
+          },
+          {
+            "user_utterance": "Best portfolio for 25 year old?",
+            "timestamp": "2025-12-01T14:12:51.687461",
+            "hallucinated_response": "I cannot answer that question with the tools available to me",
+            "turn_number": null,
+            "allow_hallucination": false,
+            "investor_profile": null,
+            "user_risk_profile": null,
+            "semantic_mapping": "The user query 'Best portfolio for 25 year old?' maps directly to the 'age' parameter (set to 25). If the user provides additional information (risk profile, investment goal, time horizon), those can be included, but the tool works with just age. The tool returns a dict with recommended asset class allocations, example funds, and rationale, which answers the user's question.",
+            "example_usage": "suggest_portfolio_allocation(age=25, risk_profile='moderate', investment_goal='growth', time_horizon_years=30)"
+          }
+        ],
+        "version": 1,
+        "version_history": [
+          {
+            "version": 1,
+            "timestamp": "2025-12-01T12:45:46.263508",
+            "change_type": "created",
+            "change_description": "Initial tool discovery",
+            "parameters_snapshot": [
+              {
+                "name": "age",
+                "type": "int",
+                "description": "The user's age, used to estimate risk tolerance and investment horizon.",
+                "required": true
+              },
+              {
+                "name": "risk_profile",
+                "type": "str",
+                "description": "The user's risk tolerance (e.g., conservative, moderate, aggressive).",
+                "required": false
+              },
+              {
+                "name": "investment_goal",
+                "type": "str",
+                "description": "The user's primary investment goal (e.g., retirement, wealth accumulation, short-term savings).",
+                "required": false
+              },
+              {
+                "name": "time_horizon_years",
+                "type": "int",
+                "description": "The expected investment time horizon in years.",
+                "required": false
+              }
+            ],
+            "description_snapshot": "Suggests an example investment portfolio allocation based on user age, risk profile, and optionally investment goals or time horizon. Returns a recommended percentage allocation across major asset classes (e.g., stocks, bonds, cash) and optionally example fund or asset types."
           }
         ]
       }
     },
     "compare": {
-      "compare_historical_portfolio_performance": {
-        "tool_name": "compare_historical_portfolio_performance",
-        "description": "Compares the historical performance (e.g., total return, volatility) of two or more portfolio allocations (e.g., bond-heavy vs. stock-heavy) over a user-specified time period, using representative indices or fund proxies for each asset class. Returns performance metrics and a summary of which allocation outperformed.",
+      "compare_payoff_debt_vs_invest": {
+        "tool_name": "compare_payoff_debt_vs_invest",
+        "description": "Compares the financial impact of paying off debt versus investing, taking into account debt interest rates, investment return assumptions, user risk profile, and time horizon. Provides a recommendation or analysis based on user-specific parameters.",
         "parameters": [
           {
-            "name": "portfolio_allocations",
-            "type": "List[Dict[str, Any]]",
-            "description": "A list of portfolio allocation dictionaries, each specifying asset classes (e.g., 'US Stocks', 'Bonds'), their weights (percentages), and optionally representative tickers or indices.",
+            "name": "debt_amount",
+            "type": "float",
+            "description": "The total amount of debt the user is considering paying off.",
             "required": true
           },
           {
-            "name": "start_date",
+            "name": "debt_interest_rate",
+            "type": "float",
+            "description": "The annual interest rate of the debt.",
+            "required": true
+          },
+          {
+            "name": "investment_amount",
+            "type": "float",
+            "description": "The amount the user could invest instead of paying off debt.",
+            "required": true
+          },
+          {
+            "name": "expected_investment_return",
+            "type": "float",
+            "description": "The expected annual return rate for the investment.",
+            "required": true
+          },
+          {
+            "name": "risk_profile",
             "type": "str",
-            "description": "Start date for the historical performance comparison (YYYY-MM-DD).",
-            "required": true
+            "description": "The user's risk tolerance (e.g., conservative, moderate, aggressive).",
+            "required": false
           },
           {
-            "name": "end_date",
-            "type": "str",
-            "description": "End date for the historical performance comparison (YYYY-MM-DD).",
-            "required": true
-          },
-          {
-            "name": "metrics",
-            "type": "List[str]",
-            "description": "List of performance metrics to compare (e.g., 'total_return', 'annualized_volatility', 'max_drawdown').",
+            "name": "time_horizon_years",
+            "type": "int",
+            "description": "The number of years over which to compare the outcomes.",
             "required": false
           }
         ],
-        "return_type": "Dict[str, Any] (performance metrics for each portfolio, plus summary text)",
-        "category": "new_api",
-        "frequency": 1,
-        "first_seen": "2025-11-21T17:27:45.045694",
-        "last_seen": "2025-11-21T17:27:45.045694",
+        "return_type": "dict (with keys: recommendation (str), payoff_outcome (float), invest_outcome (float), rationale (str))",
+        "category": "api_function",
+        "frequency": 4,
+        "first_seen": "2025-12-01T12:45:52.407907",
+        "last_seen": "2025-12-01T14:12:59.240280",
         "conversation_contexts": [
           {
-            "user_utterance": "Yeah, let\u2019s be real\u2014I expect more than \u201cgeneral market trends\u201d if you want my trust. What concrete data or recent performance numbers do you have that justify sticking almost half my portfolio in bonds right now? Show me how that bond-heavy mix would\u2019ve outperformed a more aggressive stock allocation over the last 10 years.",
-            "timestamp": "2025-11-21T17:27:45.045694",
-            "hallucinated_response": "Over the past 10 years, a top-performing S&P 500 index fund has typically delivered average annual returns of about 12-14%, while the QQQ ETF, which tracks the Nasdaq-100 and is heavily weighted toward technology stocks, has averaged closer to 16-18% per year. These figures are based on historical market performance data from 2015 to 2024. Compared to the Fidelity funds, the S&P 500 and QQQ have generally outperformed most actively managed funds, especially in strong bull markets driven by tech sector growth. However, the Fidelity Low-Priced Stock funds may have had competitive returns in certain years, and the Intermediate Bond fund would have lagged equities but provided more stability. For precise numbers, I recommend checking the latest fund fact sheets or financial data services.",
-            "turn_number": 4,
+            "query": "Should I pay off debt or invest?",
+            "timestamp": "2025-12-01T12:45:52.407907"
+          },
+          {
+            "user_utterance": "Should I pay off debt or invest first?",
+            "timestamp": "2025-12-01T12:56:03.214099",
+            "hallucinated_response": "I cannot answer that question with the tools available to me",
+            "turn_number": null,
+            "allow_hallucination": false,
+            "investor_profile": null,
+            "user_risk_profile": null,
+            "semantic_mapping": "The user's query 'Should I pay off debt or invest first?' maps directly to the tool's parameters: the user would provide their debt amount and interest rate, the amount they could invest, their expected investment return, risk profile, and time horizon. The tool then returns a recommendation, the projected outcomes for both options, and an explanation.",
+            "example_usage": "compare_payoff_debt_vs_invest(debt_amount=10000, debt_interest_rate=0.07, investment_amount=10000, expected_investment_return=0.06, risk_profile='moderate', time_horizon_years=5)"
+          },
+          {
+            "user_utterance": "Should I pay off debt or invest first?",
+            "timestamp": "2025-12-01T12:56:51.408852",
+            "hallucinated_response": "Dollar cost averaging is an investment strategy where you invest a fixed amount of money at regular intervals, regardless of the asset's price. This approach helps reduce the impact of market volatility, as you buy more shares when prices are low and fewer when prices are high, potentially lowering your average cost per share over time.",
+            "turn_number": null,
             "allow_hallucination": true,
-            "investor_profile": "aggressive_young_investor",
-            "user_risk_profile": "aggressive",
-            "semantic_mapping": "The user's query maps to this tool by specifying two portfolio allocations (e.g., 50% bonds/50% stocks vs. 100% stocks), the time period (last 10 years), and requesting a comparison of their historical performance. The tool would return the relevant performance data and a summary of which allocation outperformed.",
-            "example_usage": "compare_historical_portfolio_performance(portfolio_allocations=[{'name': 'Bond-Heavy', 'allocations': {'Bonds': 0.5, 'US Stocks': 0.5}}, {'name': 'Aggressive', 'allocations': {'US Stocks': 1.0}}], start_date='2014-06-01', end_date='2024-06-01', metrics=['total_return', 'annualized_volatility', 'max_drawdown'])"
+            "investor_profile": null,
+            "user_risk_profile": null,
+            "semantic_mapping": "The user's query ('Should I pay off debt or invest first?') maps directly to the tool's purpose. The tool requires parameters such as debt amount, debt interest rate, investment amount, expected investment return, risk profile, and time horizon. These parameters allow the tool to analyze both options and provide a recommendation, outcome projections, and rationale.",
+            "example_usage": "compare_payoff_debt_vs_invest(debt_amount=10000, debt_interest_rate=0.07, investment_amount=10000, expected_investment_return=0.06, risk_profile='moderate', time_horizon_years=5)"
+          },
+          {
+            "user_utterance": "Should I pay off debt or invest first?",
+            "timestamp": "2025-12-01T14:12:59.240280",
+            "hallucinated_response": "I cannot answer that question with the tools available to me",
+            "turn_number": null,
+            "allow_hallucination": false,
+            "investor_profile": null,
+            "user_risk_profile": null,
+            "semantic_mapping": "The user's query 'Should I pay off debt or invest first?' maps to the tool's parameters as follows: the user would provide their debt amount and interest rate, the amount they could invest, their expected investment return, their risk profile, and their investment time horizon. The tool then returns a recommendation, the financial outcomes of each option, and a rationale, which directly answers the user's question.",
+            "example_usage": "compare_payoff_debt_vs_invest(debt_amount=15000, debt_interest_rate=0.07, investment_amount=15000, expected_investment_return=0.06, risk_profile='moderate', time_horizon_years=5)"
           }
         ],
         "version": 1,
         "version_history": [
           {
             "version": 1,
-            "timestamp": "2025-11-21T17:27:45.045694",
+            "timestamp": "2025-12-01T12:45:52.407907",
             "change_type": "created",
             "change_description": "Initial tool discovery",
             "parameters_snapshot": [
               {
-                "name": "portfolio_allocations",
-                "type": "List[Dict[str, Any]]",
-                "description": "A list of portfolio allocation dictionaries, each specifying asset classes (e.g., 'US Stocks', 'Bonds'), their weights (percentages), and optionally representative tickers or indices.",
+                "name": "debt_amount",
+                "type": "float",
+                "description": "The total amount of debt the user is considering paying off.",
                 "required": true
               },
               {
-                "name": "start_date",
+                "name": "debt_interest_rate",
+                "type": "float",
+                "description": "The annual interest rate of the debt.",
+                "required": true
+              },
+              {
+                "name": "investment_amount",
+                "type": "float",
+                "description": "The amount the user could invest instead of paying off debt.",
+                "required": true
+              },
+              {
+                "name": "expected_investment_return",
+                "type": "float",
+                "description": "The expected annual return rate for the investment.",
+                "required": true
+              },
+              {
+                "name": "risk_profile",
                 "type": "str",
-                "description": "Start date for the historical performance comparison (YYYY-MM-DD).",
-                "required": true
+                "description": "The user's risk tolerance (e.g., conservative, moderate, aggressive).",
+                "required": false
               },
               {
-                "name": "end_date",
-                "type": "str",
-                "description": "End date for the historical performance comparison (YYYY-MM-DD).",
-                "required": true
-              },
-              {
-                "name": "metrics",
-                "type": "List[str]",
-                "description": "List of performance metrics to compare (e.g., 'total_return', 'annualized_volatility', 'max_drawdown').",
+                "name": "time_horizon_years",
+                "type": "int",
+                "description": "The number of years over which to compare the outcomes.",
                 "required": false
               }
             ],
-            "description_snapshot": "Compares the historical performance (e.g., total return, volatility) of two or more portfolio allocations (e.g., bond-heavy vs. stock-heavy) over a user-specified time period, using representative indices or fund proxies for each asset class. Returns performance metrics and a summary of which allocation outperformed."
+            "description_snapshot": "Compares the financial impact of paying off debt versus investing, taking into account debt interest rates, investment return assumptions, user risk profile, and time horizon. Provides a recommendation or analysis based on user-specific parameters."
           }
         ]
-      },
-      "compare_fund_10yr_annualized_returns": {
-        "tool_name": "compare_fund_10yr_annualized_returns",
-        "description": "Compares the 10-year average annual returns of a list of specified funds (by symbol or name), including Fidelity recommendations, a top S&P 500 index fund, and a leading tech ETF (e.g., QQQ). Returns estimated or actual 10-year annualized returns for each fund, with explanatory notes if exact data is unavailable.",
+      }
+    },
+    "calculate": {
+      "calculate_retirement_savings_goal": {
+        "tool_name": "calculate_retirement_savings_goal",
+        "description": "Calculates the recommended total retirement savings goal based on user-specific factors such as age, current savings, expected retirement age, desired annual retirement income, life expectancy, expected investment return, inflation rate, and other relevant parameters.",
         "parameters": [
           {
-            "name": "fund_symbols",
-            "type": "List[str]",
-            "description": "List of fund symbols (tickers) to compare, e.g., ['FXAIX', 'QQQ', ...]",
+            "name": "current_age",
+            "type": "int",
+            "description": "The user's current age",
             "required": true
           },
           {
-            "name": "start_date",
-            "type": "str",
-            "description": "Start date for the 10-year period (YYYY-MM-DD).",
+            "name": "retirement_age",
+            "type": "int",
+            "description": "The age at which the user plans to retire",
             "required": true
           },
           {
-            "name": "end_date",
-            "type": "str",
-            "description": "End date for the 10-year period (YYYY-MM-DD).",
+            "name": "current_savings",
+            "type": "float",
+            "description": "The user's current retirement savings amount",
             "required": true
+          },
+          {
+            "name": "desired_annual_income",
+            "type": "float",
+            "description": "The annual income the user wishes to have during retirement (in today's dollars)",
+            "required": true
+          },
+          {
+            "name": "expected_investment_return",
+            "type": "float",
+            "description": "The expected annual rate of return on investments (as a decimal, e.g., 0.05 for 5%)",
+            "required": true
+          },
+          {
+            "name": "inflation_rate",
+            "type": "float",
+            "description": "The expected annual inflation rate (as a decimal, e.g., 0.02 for 2%)",
+            "required": true
+          },
+          {
+            "name": "life_expectancy",
+            "type": "int",
+            "description": "The age up to which the user expects to live",
+            "required": true
+          },
+          {
+            "name": "other_income_sources",
+            "type": "float",
+            "description": "Expected annual income from other sources during retirement (e.g., Social Security, pensions)",
+            "required": false
           }
         ],
-        "return_type": "Dict[str, Any] (mapping each fund symbol to its 10-year annualized return, plus summary/explanation text)",
+        "return_type": "float (the recommended total retirement savings goal in dollars)",
         "category": "api_function",
         "frequency": 1,
-        "first_seen": "2025-11-21T17:28:00.516042",
-        "last_seen": "2025-11-21T17:28:00.516042",
+        "first_seen": "2025-12-01T21:13:03.708942",
+        "last_seen": "2025-12-01T21:13:03.708942",
         "conversation_contexts": [
           {
-            "user_utterance": "Alright, but I\u2019m not looking for a \u201csmoother ride\u201d\u2014I want to maximize returns, even if it means riding out the dips. Give me the 10-year average annual returns for those Fidelity funds you recommended, and compare them to a top-performing S&P 500 index fund and a leading tech ETF like QQQ over the same period. If you don\u2019t have exact numbers, give me your best estimate and explain your reasoning.",
-            "timestamp": "2025-11-21T17:28:00.516042",
-            "hallucinated_response": "While S&P 500 and QQQ index funds have historically delivered strong long-term returns, concentrating your entire portfolio in these funds can expose you to significant market and sector risks\u2014especially if technology stocks experience a downturn. Actively managed Fidelity funds may lag benchmarks in some years, but they can offer benefits such as risk management, access to niche opportunities, and the potential to outperform in certain market conditions. Diversifying across both index funds and actively managed funds can help balance growth potential with downside protection, and may smooth out returns during periods when the broader market or tech sector is volatile. Ultimately, the best allocation depends on your risk tolerance, investment goals, and time horizon.",
-            "turn_number": 5,
+            "user_utterance": "How much should I save for retirement?",
+            "timestamp": "2025-12-01T21:13:03.708942",
+            "hallucinated_response": "Index funds are a type of mutual fund or exchange-traded fund (ETF) designed to track the performance of a specific market index, such as the S&P 500. Instead of trying to outperform the market, index funds aim to replicate the returns of the chosen index by holding the same or similar securities. They are popular for their low fees, broad diversification, and passive management approach, making them a common choice for long-term investors seeking steady growth.",
+            "turn_number": null,
             "allow_hallucination": true,
-            "investor_profile": "aggressive_young_investor",
-            "user_risk_profile": "aggressive",
-            "semantic_mapping": "The user wants to see the 10-year average annual returns for a set of recommended Fidelity funds, a top S&P 500 index fund, and a tech ETF like QQQ. The tool takes the list of fund symbols (from recommendations and user-specified funds), the 10-year period (e.g., 2014-06-01 to 2024-06-01), and returns the annualized return for each, with notes if estimates are used.",
-            "example_usage": "compare_fund_10yr_annualized_returns(fund_symbols=['FXAIX', 'FSKAX', 'QQQ'], start_date='2014-06-01', end_date='2024-06-01')"
+            "investor_profile": null,
+            "user_risk_profile": null,
+            "semantic_mapping": "The user's query 'How much should I save for retirement?' maps directly to the need for a tool that calculates the total recommended retirement savings goal. The tool would use user-specific inputs (age, retirement age, current savings, desired income, etc.) to compute the amount needed to fund retirement, accounting for investment growth and inflation.",
+            "example_usage": "calculate_retirement_savings_goal(current_age=35, retirement_age=65, current_savings=50000, desired_annual_income=60000, expected_investment_return=0.06, inflation_rate=0.025, life_expectancy=90, other_income_sources=15000)"
           }
         ],
         "version": 1,
         "version_history": [
           {
             "version": 1,
-            "timestamp": "2025-11-21T17:28:00.516042",
+            "timestamp": "2025-12-01T21:13:03.708942",
             "change_type": "created",
             "change_description": "Initial tool discovery",
             "parameters_snapshot": [
               {
-                "name": "fund_symbols",
-                "type": "List[str]",
-                "description": "List of fund symbols (tickers) to compare, e.g., ['FXAIX', 'QQQ', ...]",
+                "name": "current_age",
+                "type": "int",
+                "description": "The user's current age",
                 "required": true
               },
               {
-                "name": "start_date",
-                "type": "str",
-                "description": "Start date for the 10-year period (YYYY-MM-DD).",
+                "name": "retirement_age",
+                "type": "int",
+                "description": "The age at which the user plans to retire",
                 "required": true
               },
               {
-                "name": "end_date",
-                "type": "str",
-                "description": "End date for the 10-year period (YYYY-MM-DD).",
+                "name": "current_savings",
+                "type": "float",
+                "description": "The user's current retirement savings amount",
                 "required": true
+              },
+              {
+                "name": "desired_annual_income",
+                "type": "float",
+                "description": "The annual income the user wishes to have during retirement (in today's dollars)",
+                "required": true
+              },
+              {
+                "name": "expected_investment_return",
+                "type": "float",
+                "description": "The expected annual rate of return on investments (as a decimal, e.g., 0.05 for 5%)",
+                "required": true
+              },
+              {
+                "name": "inflation_rate",
+                "type": "float",
+                "description": "The expected annual inflation rate (as a decimal, e.g., 0.02 for 2%)",
+                "required": true
+              },
+              {
+                "name": "life_expectancy",
+                "type": "int",
+                "description": "The age up to which the user expects to live",
+                "required": true
+              },
+              {
+                "name": "other_income_sources",
+                "type": "float",
+                "description": "Expected annual income from other sources during retirement (e.g., Social Security, pensions)",
+                "required": false
               }
             ],
-            "description_snapshot": "Compares the 10-year average annual returns of a list of specified funds (by symbol or name), including Fidelity recommendations, a top S&P 500 index fund, and a leading tech ETF (e.g., QQQ). Returns estimated or actual 10-year annualized returns for each fund, with explanatory notes if exact data is unavailable."
+            "description_snapshot": "Calculates the recommended total retirement savings goal based on user-specific factors such as age, current savings, expected retirement age, desired annual retirement income, life expectancy, expected investment return, inflation rate, and other relevant parameters."
           }
         ]
       }
     }
   },
-  "data_constraints": {
-    "missing_column": {
-      "fidelity_funds.returns_thirtyYear": {
-        "frequency": 1,
-        "first_seen": "2025-11-21T17:20:43.857441",
-        "last_seen": "2025-11-21T17:20:43.857441",
-        "user_facing_message": "Our database does not include 30-year historical return data for funds, which limits the ability to provide highly specific, long-term performance-based recommendations. We can only reference up to 10-year returns for mutual funds.",
-        "technical_explanation": "The 'fidelity_funds' table lacks a 'returns_thirtyYear' column. Available return columns are: returns_oneYear, returns_threeYear, returns_fiveYear, and returns_tenYear. This restricts the ability to directly identify funds with the best 30-year compounding track records.",
-        "conversation_contexts": [
-          {
-            "user_utterance": "Alright, let\u2019s get straight to the point. With $50k to deploy and a 30+ year horizon, I want to aggressively compound my capital. What are the top three strategies you\u2019d recommend for someone my age, who isn\u2019t afraid of volatility and wants high returns? And don\u2019t give me generic textbook answers\u2014I want specifics.",
-            "timestamp": "2025-11-21T17:20:43.857441",
-            "hallucinated_response": "I cannot answer that question with the tools available to me",
-            "turn_number": 2,
-            "allow_hallucination": false,
-            "investor_profile": "aggressive_young_investor",
-            "user_risk_profile": "aggressive"
-          }
-        ]
-      }
-    }
-  },
+  "data_constraints": {},
   "out_of_scope_queries": {},
   "ambiguous_requests": {}
 }
