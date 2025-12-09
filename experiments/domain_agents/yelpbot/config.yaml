@@ -1,0 +1,17 @@
+validate_response: false
+allow_hallucination: true  # ON - for hallucination capture
+
+prompt_dir: "prompts/"
+prompt_log_path: "logs/yelpbot_prompts.log"
+
+semantic_parser:
+    model_name: "azure/gpt-4.1"
+
+response_generator:
+    model_name: "azure/gpt-4.1"
+
+knowledge_parser:
+    model_name: "azure/gpt-4.1"
+
+knowledge_base:
+    model_name: "azure/gpt-4.1"
