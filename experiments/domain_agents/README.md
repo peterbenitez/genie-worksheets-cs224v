@@ -5,7 +5,7 @@ Discovers missing tools by forcing agent hallucinations on out-of-scope queries,
 ## Pipeline
 
 ```
-User Personas → Simulated Queries (30/domain) → Force Hallucination → Schema Check → LLM Analysis → Tool Discovery → Refinement (MAX_TOOLS=5)
+User Personas -> Simulated Queries (30/domain) -> Force Hallucination -> Schema Check -> LLM Analysis -> Tool Discovery ->  Refinement (MAX_TOOLS=5)
 ```
 
 ## Setup
