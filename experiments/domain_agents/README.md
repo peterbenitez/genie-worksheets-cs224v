@@ -31,12 +31,12 @@ python experiments/domain_agents/run_all_experiments.py
 ```
 Generates 30 queries/domain (90 total), analyzes each query, discovers missing tools, and consolidates to MAX_TOOLS=5.
 
-## Run Real Agent Conversations (Investment Agent)
+## Run Real Agent Conversations (Investment Agent only for now)
 
 ```bash
 PYTHONPATH=src python experiments/domain_agents/investment_agent/hallucinations/run_automated_conversations.py
 ```
-Runs multi-turn conversations with 5 investor profiles × 2 hallucination modes = 10 scenarios, up to 8 turns each.
+Runs multi-turn conversations with 5 investor profiles * 2 hallucination modes = 10 scenarios, up to 8 turns each.
 
 ## Run Refiner Per Domain
 
@@ -56,6 +56,43 @@ cd experiments/domain_agents/yelpbot/hallucinations && python tool_registry_refi
 Each domain produces:
 - `tool_registry.json` - Raw discovered tools
 - `tool_registry_refined.json` - Refined to MAX_TOOLS=5
+
+## Configuration
+
+Each domain has a `config.yaml` file that controls agent behavior:
+
+```yaml
+# experiments/domain_agents/investment_agent/config.yaml
+validate_response: false
+allow_hallucination: true   # Toggle hallucination mode
+
+prompt_log_path: "logs/investment_agent_prompts.log"
+
+semantic_parser:
+    model_name: "azure/gpt-4.1"
+# ... other model configs
+```
+
+### Config Options
+
+| Option | Values | Description |
+|--------|--------|-------------|
+| `allow_hallucination` | `true` / `false` | **true**: Agent generates responses even when lacking data (may hallucinate). **false**: Agent refuses to answer when it doesn't have enough information. |
+| `validate_response` | `true` / `false` | Enable/disable response validation |
+| `prompt_log_path` | path string | Where to log prompts |
+
+### Toggling Hallucination Mode
+
+```bash
+# In config.yaml, set:
+allow_hallucination: true   # Agent may hallucinate when lacking data
+allow_hallucination: false  # Agent refuses instead of hallucinating
+```
+
+This is useful for:
+- **Testing**: Compare agent behavior with hallucinations on vs off
+- **Production**: Set to `false` for safer, more reliable responses
+- **Research**: Set to `true` to discover what tools/data the agent needs
 
 ## Structure
 

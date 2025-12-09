@@ -1,5 +1,5 @@
 validate_response: false
-allow_hallucination: false
+allow_hallucination: true
 
 prompt_log_path: "logs/investment_agent_prompts.log"
 # conversation_log_path: "logs/investment_agent_conversation.json"
