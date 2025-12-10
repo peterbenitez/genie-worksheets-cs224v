@@ -5,7 +5,7 @@ Discovers missing tools by forcing agent hallucinations on out-of-scope queries,
 ## Pipeline
 
 ```
-User Personas -> Simulated Queries (30/domain) -> Force Hallucination -> Schema Check -> LLM Analysis -> Tool Discovery ->  Refinement (MAX_TOOLS=5)
+User Personas -> Simulated Queries (30/domain) -> Force Hallucination -> Schema Check -> LLM Analysis -> Tool Discovery (unlimited) -> Refinement (MAX_TOOLS=5)
 ```
 
 ## Setup
@@ -29,7 +29,7 @@ LLM_API_VERSION=2025-01-01-preview
 ```bash
 python experiments/domain_agents/run_all_experiments.py
 ```
-Generates 30 queries/domain (90 total), analyzes each query, discovers missing tools, and consolidates to MAX_TOOLS=5.
+Generates 30 queries/domain (90 total), analyzes each query, discovers missing tools (unlimited), then refiner consolidates to MAX_TOOLS=5.
 
 ## Run Real Agent Conversations (Investment Agent only for now)
 
@@ -54,8 +54,8 @@ cd experiments/domain_agents/yelpbot/hallucinations && python tool_registry_refi
 ## Output
 
 Each domain produces:
-- `tool_registry.json` - Raw discovered tools
-- `tool_registry_refined.json` - Refined to MAX_TOOLS=5
+- `tool_registry.json` - Raw discovered tools (unlimited)
+- `tool_registry_refined.json` - Consolidated to MAX_TOOLS=5
 
 ## Configuration
 
@@ -100,8 +100,8 @@ This is useful for:
 experiments/domain_agents/
 ├── run_all_experiments.py          # Run all domains
 ├── shared/                         # Shared code (symlinked)
-│   ├── tool_discovery.py           # MAX_TOOLS=5 enforcement
-│   ├── tool_registry_refiner.py    # Merges similar tools
+│   ├── tool_discovery.py           # Discovers tools (unlimited)
+│   ├── tool_registry_refiner.py    # Consolidates to MAX_TOOLS=5
 │   ├── data_availability.py        # Schema checking
 │   └── schema_parser.py            # Parses table_schema.txt
 ├── investment_agent/
