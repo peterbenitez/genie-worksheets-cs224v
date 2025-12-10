@@ -7,6 +7,7 @@ to identify missing capabilities. No hardcoded domain configurations.
 import sys
 import json
 import yaml
+import time
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any
@@ -51,6 +52,8 @@ def load_domain_config(domain_path: Path) -> Dict[str, Any]:
             config["existing_capabilities"] = inferred.get("capabilities", [])
         if not config.get("persona_types"):
             config["persona_types"] = inferred.get("personas", [])
+        # Add delay after API call to avoid rate limits
+        time.sleep(5)
 
     return config
 
@@ -313,6 +316,8 @@ def run_domain_experiment(domain: str, domain_path: Path, num_queries: int = 30)
     print(f"\n📝 Generating {num_queries} test queries...")
     queries = generate_queries_for_domain(domain, config, num_queries)
     print(f"   Generated {len(queries)} queries")
+    # Add delay after API call to avoid rate limits
+    time.sleep(5)
 
     print(f"\n🔍 Analyzing queries for missing tools...")
     analyses = []
@@ -320,6 +325,8 @@ def run_domain_experiment(domain: str, domain_path: Path, num_queries: int = 30)
         print(f"   [{i+1}/{len(queries)}] {query[:50]}...")
         analysis = analyze_query(query, domain, config, registry_path)
         analyses.append(analysis)
+        # Add delay after each API call to avoid rate limits
+        time.sleep(5)
 
     print(f"\n💾 Updating tool registry...")
     tool_counts = update_registry(registry_path, analyses, domain)

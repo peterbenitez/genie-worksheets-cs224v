@@ -29,7 +29,7 @@ LLM_API_VERSION=2025-01-01-preview
 ```bash
 python experiments/domain_agents/run_all_experiments.py
 ```
-Generates 30 queries per domain (90 total), analyzes each query, discovers missing tools (unlimited), then refiner consolidates to MAX_TOOLS=5.
+Generates 30 generated queries per domain (90 total), analyzes each query, discovers missing tools (unlimited), then refiner consolidates to MAX_TOOLS=5.
 
 ## Run Real Agent Conversations (Investment Agent only for now)
 
