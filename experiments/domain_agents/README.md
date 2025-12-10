@@ -1,6 +1,6 @@
 # GenieWorksheet Wizard - Hallucination Analysis Framework
 
-Discovers missing tools by forcing agent hallucinations on out-of-scope queries, then analyzes traces to infer missing APIs, database columns, or policy logic.
+Discovers missing tools by forcing agent hallucinations on out-of-scope queries, then analyzes traces to infer missing APIs or database columns/schemas.
 
 ## Pipeline
 
@@ -29,7 +29,7 @@ LLM_API_VERSION=2025-01-01-preview
 ```bash
 python experiments/domain_agents/run_all_experiments.py
 ```
-Generates 30 queries/domain (90 total), analyzes each query, discovers missing tools (unlimited), then refiner consolidates to MAX_TOOLS=5.
+Generates 30 queries per domain (90 total), analyzes each query, discovers missing tools (unlimited), then refiner consolidates to MAX_TOOLS=5.
 
 ## Run Real Agent Conversations (Investment Agent only for now)
 
@@ -39,6 +39,7 @@ PYTHONPATH=src python experiments/domain_agents/investment_agent/hallucinations/
 Runs multi-turn conversations with 5 investor profiles * 2 hallucination modes = 10 scenarios, up to 8 turns each.
 
 ## Run Refiner Per Domain
+- Requires agent conversation/hallucination tool_registry.json file to be created using **all domains OR investment agent only command** as described above
 
 ```bash
 # Investment Agent

@@ -22,6 +22,13 @@
     Framework for creating reliable conversational agents
 </p>
 
+## Tool Generation Framework (CS 224v addition)
+
+We built a framework to automatically discover missing tools by forcing agent hallucinations on out-of-scope queries. The system analyzes traces to infer missing APIs, database columns, or policy logic.
+
+**[See the Hallucination Analysis README](experiments/domain_agents/README.md)** for setup and usage instructions.
+
+___
 
 Genie is a programmable framework for creating task-oriented conversational
 agents that are designed to handle complex user interactions and knowledge
@@ -35,11 +42,9 @@ helpful with knowledge sources, and offers ease of programming policies through
 
 <img src="assets/banner.jpg">
 
-## Hallucination Analysis Framework
 
-We built a framework to automatically discover missing tools by forcing agent hallucinations on out-of-scope queries. The system analyzes traces to infer missing APIs, database columns, or policy logic.
 
-**[See the Hallucination Analysis README](experiments/domain_agents/README.md)** for setup and usage instructions.
+
 
 ## Installation
 
