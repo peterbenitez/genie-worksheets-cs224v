@@ -265,6 +265,38 @@ def update_registry(registry_path: Path, analyses: List[Dict], domain: str):
     return tool_counts
 
 
+def ensure_registry_exists(registry_path: Path, domain_path: Path) -> None:
+    """Create tool_registry.json if it doesn't exist."""
+    if registry_path.exists():
+        return
+
+    # Create initial registry structure
+    registry = {
+        "registry_version": "2.0",
+        "last_updated": datetime.now().isoformat(),
+        "existing_apis": {},
+        "existing_kb_tables": {},
+        "missing_tools_by_action": {},
+        "data_constraints": {},
+        "out_of_scope_queries": {},
+        "ambiguous_requests": {}
+    }
+
+    # Try to parse schema tables if they exist
+    schema_path = domain_path / "table_schema.txt"
+    if schema_path.exists():
+        tables = parse_schema_tables(schema_path)
+        registry["existing_kb_tables"] = {table: {"columns": []} for table in tables}
+
+    # Ensure hallucinations directory exists
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(registry_path, 'w') as f:
+        json.dump(registry, f, indent=2)
+
+    print(f"   Created new tool registry: {registry_path}")
+
+
 def run_domain_experiment(domain: str, domain_path: Path, num_queries: int = 30):
     """Run full experiment for a single domain."""
 
@@ -274,6 +306,9 @@ def run_domain_experiment(domain: str, domain_path: Path, num_queries: int = 30)
 
     config = load_domain_config(domain_path)
     registry_path = domain_path / "hallucinations" / "tool_registry.json"
+
+    # Ensure registry exists before running experiment
+    ensure_registry_exists(registry_path, domain_path)
 
     print(f"\n📝 Generating {num_queries} test queries...")
     queries = generate_queries_for_domain(domain, config, num_queries)

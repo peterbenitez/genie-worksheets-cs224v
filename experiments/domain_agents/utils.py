@@ -25,7 +25,7 @@ def get_openai_client() -> AzureOpenAI:
 
 def discover_domains(base_path: Path) -> Dict[str, Path]:
     """
-    Auto-discover domains by finding directories with hallucinations/tool_registry.json.
+    Auto-discover domains by finding directories with a hallucinations/ subdirectory.
 
     Returns:
         Dict mapping domain name to domain directory path
@@ -36,8 +36,8 @@ def discover_domains(base_path: Path) -> Dict[str, Path]:
         if not item.is_dir() or item.name.startswith('.'):
             continue
 
-        registry_path = item / "hallucinations" / "tool_registry.json"
-        if registry_path.exists():
+        hallucinations_dir = item / "hallucinations"
+        if hallucinations_dir.is_dir():
             domain_name = item.name.replace("_agent", "")
             domains[domain_name] = item
 
