@@ -48,9 +48,8 @@ load_dotenv(ENV_PATH)
 
 # Constants
 DEFAULT_MODEL = "gpt-4.1"
-DEFAULT_TEMPERATURE = 0.0  # Low temperature for consistent tool generation
+DEFAULT_TEMPERATURE = 0.0
 REGISTRY_FILENAME = "tool_registry.json"
-MAX_TOOLS = 5  # Hard limit - forces generalization over proliferation
 
 
 @dataclass
@@ -157,23 +156,6 @@ class ToolRegistry:
                 registry_data = json.load(registry_file)
             registry = cls._from_dict(registry_data)
             logger.info(f"Loaded tool registry with {len(registry.missing_tools)} missing tools")
-
-            # Enforce MAX_TOOLS limit on load - keep only top N by frequency
-            if len(registry.missing_tools) > MAX_TOOLS:
-                logger.warning(
-                    f"Registry exceeds MAX_TOOLS limit ({len(registry.missing_tools)} > {MAX_TOOLS}). "
-                    f"Consolidating to top {MAX_TOOLS} tools by frequency."
-                )
-                # Sort by frequency descending and keep top MAX_TOOLS
-                sorted_tools = sorted(
-                    registry.missing_tools.items(),
-                    key=lambda x: x[1].frequency,
-                    reverse=True
-                )
-                registry.missing_tools = dict(sorted_tools[:MAX_TOOLS])
-                logger.info(f"Consolidated to {len(registry.missing_tools)} tools")
-                # Save the consolidated registry
-                registry.save_to_disk(registry_path)
         else:
             # Create new
             registry = cls()
@@ -252,19 +234,7 @@ class ToolRegistry:
                     f"Tool '{tool_spec.tool_name}' reused (freq={self.missing_tools[tool_spec.tool_name].frequency})"
                 )
         else:
-            # New missing tool - but first check MAX_TOOLS limit
-            if len(self.missing_tools) >= MAX_TOOLS:
-                # At limit - update most frequently used tool instead of creating new
-                most_used = max(self.missing_tools.values(), key=lambda t: t.frequency)
-                most_used.frequency += 1
-                most_used.last_seen = context['timestamp']
-                most_used.conversation_contexts.append(context)
-                logger.warning(
-                    f"MAX_TOOLS limit ({MAX_TOOLS}) reached. "
-                    f"Incrementing '{most_used.tool_name}' instead of creating '{tool_spec.tool_name}'"
-                )
-                return
-
+            # New missing tool
             tool_spec.frequency = 1
             tool_spec.first_seen = context['timestamp']
             tool_spec.last_seen = context['timestamp']
@@ -283,7 +253,7 @@ class ToolRegistry:
             tool_spec.version_history = [creation_entry]
 
             self.missing_tools[tool_spec.tool_name] = tool_spec
-            logger.info(f"New missing tool discovered: '{tool_spec.tool_name}' ({len(self.missing_tools)}/{MAX_TOOLS})")
+            logger.info(f"New missing tool discovered: '{tool_spec.tool_name}' (total: {len(self.missing_tools)})")
     
     def save_to_disk(self, registry_path: Optional[Path] = None):
         """
@@ -718,17 +688,6 @@ USER QUERY:
 {data_context}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TOOL LIMIT (MAX {MAX_TOOLS}):
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-AT MOST {MAX_TOOLS} tools allowed. Current: {len(registry.missing_tools)}/{MAX_TOOLS}
-
-At limit? MUST reuse/update existing - NEVER create new.
-Prefer GENERAL parameterized tools:
-- action_subject(subject: str) NOT action_specific_thing, action_other_thing
-- action_items(items: List[str], criteria: str) NOT action_type_a, action_type_b
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TOOL GRANULARITY PRINCIPLE:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -1116,21 +1075,14 @@ IMPORTANT:
             logger.info(f"Updated existing missing tool: {tool_name} (v{tool_spec.version})")
         
         elif parsed["action"] == "create_new":
-            # Enforce MAX_TOOLS limit
-            if len(registry.missing_tools) >= MAX_TOOLS:
-                # At limit - update most-used tool instead
-                most_used = max(registry.missing_tools.values(), key=lambda t: t.frequency)
-                logger.warning(f"At {MAX_TOOLS}-tool limit, updating '{most_used.tool_name}' instead of creating new")
-                tool_spec = self._merge_tool_parameters(most_used, parsed, registry)
-            else:
-                tool_spec = HypotheticalTool(
-                    tool_name=parsed["tool_name"],
-                    description=parsed["description"],
-                    parameters=[ToolParameter(**p) for p in parsed["parameters"]],
-                    return_type=parsed["return_type"],
-                    category=parsed["category"]
-                )
-                logger.info(f"Creating new missing tool: {tool_spec.tool_name}")
+            tool_spec = HypotheticalTool(
+                tool_name=parsed["tool_name"],
+                description=parsed["description"],
+                parameters=[ToolParameter(**p) for p in parsed["parameters"]],
+                return_type=parsed["return_type"],
+                category=parsed["category"]
+            )
+            logger.info(f"Creating new missing tool: {tool_spec.tool_name}")
         
         else:
             raise ValueError(f"Unknown action in LLM response: {parsed.get('action')}")
