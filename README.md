@@ -35,6 +35,12 @@ helpful with knowledge sources, and offers ease of programming policies through
 
 <img src="assets/banner.jpg">
 
+## Hallucination Analysis Framework
+
+We built a framework to automatically discover missing tools by forcing agent hallucinations on out-of-scope queries. The system analyzes traces to infer missing APIs, database columns, or policy logic.
+
+**[See the Hallucination Analysis README](experiments/domain_agents/README.md)** for setup and usage instructions.
+
 ## Installation
 
 To install Genie, we recommend using uv ([UV installation guide](https://github.com/astral-sh/uv?tab=readme-ov-file#installation))
